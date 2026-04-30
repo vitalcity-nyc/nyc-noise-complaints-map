@@ -1,0 +1,28 @@
+{
+  "generated": "2026-04-30T20:42:07+00:00",
+  "since": "2025-01-01T00:00:00",
+  "until": "2026-05-01T00:00:00",
+  "total_rows": 1034801,
+  "subtypes": [
+    "Noise - Residential",
+    "Noise - Street/Sidewalk",
+    "Noise - Commercial",
+    "Noise",
+    "Noise - Vehicle",
+    "Noise - Helicopter",
+    "Noise - Park",
+    "Noise - House of Worship"
+  ],
+  "subtype_counts": {
+    "Noise - Residential": 579563,
+    "Noise - Street/Sidewalk": 203325,
+    "Noise - Commercial": 81013,
+    "Noise": 74159,
+    "Noise - Vehicle": 56104,
+    "Noise - Helicopter": 25220,
+    "Noise - Park": 11352,
+    "Noise - House of Worship": 4065
+  },
+  "min_chronic": 10,
+  "hex_resolution": 8
+}

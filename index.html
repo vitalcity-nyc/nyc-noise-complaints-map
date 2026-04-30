@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New York City 311 noise complaints — interactive map</title>
+<meta name="description" content="Interactive map of New York City 311 noise complaints in 2025 and year-to-date 2026, filterable by noise type, with chronic complaint hotspots.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+/* All styles scoped under .ncm-root so this can be embedded inside a Ghost post or any
+   other page without leaking. The standalone view at index.html wraps the body in .ncm-root
+   and adds .ncm-fullscreen which fills the viewport. */
+
+.ncm-root {
+  --ncm-black: #050507;
+  --ncm-white: #ffffff;
+  --ncm-cloud: #dddddd;
+  --ncm-paper: #f7f6f1;
+  --ncm-charcoal: #707175;
+  --ncm-rule: #050507;
+
+  --ncm-chartreuse: #dde44c;
+  --ncm-orange: #ff7c53;
+  --ncm-magenta: #e7466d;
+  --ncm-indigo: #394882;
+  --ncm-cerulean: #217ebe;
+
+  /* heat ramp — chartreuse → orange → red, sequential bad direction */
+  --ncm-heat-0: #f4f1c0;
+  --ncm-heat-1: #f0d674;
+  --ncm-heat-2: #fb9e63;
+  --ncm-heat-3: #fb693c;
+  --ncm-heat-4: #ed5236;
+  --ncm-heat-5: #d2232a;
+
+  --ncm-font-sans: "halyard-text", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --ncm-font-serif: "GascogneTS", "Source Serif 4", Georgia, serif;
+
+  font-family: var(--ncm-font-sans);
+  color: var(--ncm-black);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.ncm-root *, .ncm-root *::before, .ncm-root *::after {
+  box-sizing: border-box;
+}
+
+.ncm-fullscreen { position: fixed; inset: 0; background: var(--ncm-paper); }
+
+/* Embed mode: container is a relative box; height set inline by host page (default 720px) */
+.ncm-embed { position: relative; width: 100%; height: 720px; background: var(--ncm-paper); border: 1px solid var(--ncm-black); }
+
+.ncm-root #ncm-map { position: absolute; inset: 0; z-index: 1; background: var(--ncm-paper); }
+
+/* ------- Panel ------- */
+.ncm-panel {
+  position: absolute;
+  top: 16px; left: 16px;
+  width: 340px;
+  max-height: calc(100% - 32px);
+  background: var(--ncm-white);
+  border: 1px solid var(--ncm-black);
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 4px 4px 0 var(--ncm-chartreuse);
+}
+
+.ncm-panel-inner { padding: 20px 22px 22px; }
+
+.ncm-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ncm-black);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.ncm-kicker::before {
+  content: "";
+  display: inline-block;
+  width: 18px; height: 2px; background: var(--ncm-orange);
+}
+
+.ncm-title {
+  font-family: var(--ncm-font-serif);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.ncm-deck {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ncm-charcoal);
+  margin-bottom: 18px;
+}
+
+.ncm-rule {
+  height: 1px; background: var(--ncm-black); border: 0;
+  margin: 14px 0 14px;
+}
+
+.ncm-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--ncm-black);
+  border: 1px solid var(--ncm-black);
+  margin-bottom: 16px;
+}
+.ncm-stat {
+  background: var(--ncm-paper);
+  padding: 10px 12px;
+}
+.ncm-stat-label { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ncm-charcoal); margin-bottom: 4px; font-weight: 600; }
+.ncm-stat-value { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 22px; line-height: 1.05; }
+.ncm-stat-sub { font-size: 11px; color: var(--ncm-charcoal); margin-top: 2px; }
+
+.ncm-section { margin-bottom: 14px; }
+.ncm-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ncm-black);
+  margin-bottom: 7px;
+}
+
+.ncm-segctl {
+  display: flex; gap: 0;
+  border: 1px solid var(--ncm-black);
+}
+.ncm-segctl button {
+  flex: 1;
+  padding: 7px 0;
+  background: var(--ncm-white);
+  border: 0;
+  border-right: 1px solid var(--ncm-black);
+  font-family: var(--ncm-font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ncm-black);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.ncm-segctl button:last-child { border-right: 0; }
+.ncm-segctl button.is-active { background: var(--ncm-black); color: var(--ncm-white); }
+.ncm-segctl button:hover:not(.is-active) { background: var(--ncm-paper); }
+
+.ncm-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--ncm-white);
+  border: 1px solid var(--ncm-black);
+  font-family: var(--ncm-font-sans);
+  font-size: 13px;
+  color: var(--ncm-black);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0l5 6 5-6z' fill='%23050507'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  outline: none;
+}
+.ncm-select:focus { box-shadow: 2px 2px 0 var(--ncm-chartreuse); }
+
+.ncm-slider-wrap { display: flex; align-items: center; gap: 10px; }
+.ncm-slider-wrap input[type=range] { flex: 1; accent-color: var(--ncm-orange); }
+.ncm-slider-val {
+  font-family: var(--ncm-font-serif); font-weight: 700;
+  font-size: 14px; min-width: 56px; text-align: right;
+  color: var(--ncm-black);
+}
+
+.ncm-legend { margin: 14px 0 12px; }
+.ncm-legend-title { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ncm-charcoal); margin-bottom: 6px; font-weight: 600; }
+.ncm-legend-bar {
+  height: 10px;
+  background: linear-gradient(to right, var(--ncm-heat-0), var(--ncm-heat-1), var(--ncm-heat-2), var(--ncm-heat-3), var(--ncm-heat-4), var(--ncm-heat-5));
+  border: 1px solid var(--ncm-black);
+}
+.ncm-legend-labels {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--ncm-charcoal); margin-top: 4px;
+}
+
+.ncm-toplist { margin-top: 12px; }
+.ncm-toplist-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+.ncm-toplist-item {
+  display: grid; grid-template-columns: 18px 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--ncm-cloud);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ncm-toplist-item:hover { background: var(--ncm-paper); }
+.ncm-toplist-rank { font-family: var(--ncm-font-serif); color: var(--ncm-charcoal); font-size: 11px; font-weight: 600; }
+.ncm-toplist-addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ncm-toplist-count { font-family: var(--ncm-font-serif); font-weight: 700; color: var(--ncm-heat-5); font-variant-numeric: tabular-nums; }
+
+.ncm-footer-meta {
+  margin-top: 16px;
+  font-size: 10.5px;
+  color: var(--ncm-charcoal);
+  line-height: 1.5;
+}
+.ncm-footer-meta a { color: var(--ncm-black); }
+.ncm-footer-meta details summary { cursor: pointer; color: var(--ncm-black); font-weight: 600; }
+.ncm-footer-meta details[open] summary { margin-bottom: 6px; }
+
+/* Loading overlay */
+.ncm-loading {
+  position: absolute; inset: 0;
+  background: rgba(247,246,241,0.96);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 2000;
+  transition: opacity 0.4s;
+}
+.ncm-loading.is-hidden { opacity: 0; pointer-events: none; }
+.ncm-loading-bar {
+  width: 240px; height: 3px; background: var(--ncm-cloud);
+  position: relative; overflow: hidden;
+}
+.ncm-loading-bar::after {
+  content: ""; position: absolute; top: 0; left: 0; height: 100%; width: 40%;
+  background: var(--ncm-orange);
+  animation: ncm-loading-slide 1.4s ease-in-out infinite;
+}
+@keyframes ncm-loading-slide {
+  0% { left: -40%; } 100% { left: 100%; }
+}
+.ncm-loading-text { margin-top: 14px; font-size: 12px; color: var(--ncm-charcoal); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }
+
+/* Leaflet popup overrides — scoped to .ncm-root */
+.ncm-root .leaflet-popup-content-wrapper {
+  background: var(--ncm-white);
+  color: var(--ncm-black);
+  border: 1px solid var(--ncm-black);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--ncm-chartreuse);
+}
+.ncm-root .leaflet-popup-content { font-family: var(--ncm-font-sans); font-size: 12.5px; margin: 14px 16px; line-height: 1.45; }
+.ncm-root .leaflet-popup-tip { background: var(--ncm-white); border: 1px solid var(--ncm-black); }
+.ncm-root .leaflet-popup-close-button { color: var(--ncm-charcoal) !important; padding: 6px 8px 0 0 !important; }
+
+.ncm-pop-kicker { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--ncm-orange); margin-bottom: 4px; }
+.ncm-pop-addr { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 15px; line-height: 1.2; margin-bottom: 2px; }
+.ncm-pop-meta { font-size: 11px; color: var(--ncm-charcoal); margin-bottom: 8px; }
+.ncm-pop-big { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 30px; line-height: 1; color: var(--ncm-heat-5); }
+.ncm-pop-big-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ncm-charcoal); margin-bottom: 2px; font-weight: 600; }
+.ncm-pop-bar-row { display: grid; grid-template-columns: 1fr 36px; gap: 6px; align-items: center; font-size: 11px; padding: 2px 0; }
+.ncm-pop-bar-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ncm-pop-bar-row .num { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.ncm-pop-bar { height: 6px; background: var(--ncm-cloud); position: relative; grid-column: 1/-1; margin-bottom: 6px; }
+.ncm-pop-bar > span { position: absolute; left: 0; top: 0; height: 100%; background: var(--ncm-orange); }
+
+.ncm-leaflet-attribution { font-size: 10px; }
+.ncm-root .leaflet-control-attribution { background: rgba(255,255,255,0.85); }
+
+@media (max-width: 720px) {
+  .ncm-panel {
+    top: auto; bottom: 0; left: 0; right: 0;
+    width: 100%; max-height: 56%;
+    box-shadow: 0 -4px 0 var(--ncm-chartreuse);
+  }
+  .ncm-fullscreen .ncm-panel { max-height: 60%; }
+}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f7f6f1;">
+
+<div class="ncm-root ncm-fullscreen" id="ncm-mount">
+  <div id="ncm-map"></div>
+
+  <div class="ncm-panel">
+    <div class="ncm-panel-inner">
+      <div class="ncm-kicker">Sound and the city <span style="opacity:0.4">/</span> 311 noise complaints</div>
+      <h1 class="ncm-title">Where New York calls 311 about noise</h1>
+      <p class="ncm-deck">Every 311 noise complaint in 2025 and year-to-date 2026, mapped citywide. Filter by type and surface chronic addresses.</p>
+
+      <div class="ncm-stats">
+        <div class="ncm-stat">
+          <div class="ncm-stat-label">Total complaints</div>
+          <div class="ncm-stat-value" id="ncm-stat-total">—</div>
+          <div class="ncm-stat-sub" id="ncm-stat-total-sub">in selection</div>
+        </div>
+        <div class="ncm-stat">
+          <div class="ncm-stat-label">Chronic addresses</div>
+          <div class="ncm-stat-value" id="ncm-stat-chronic">—</div>
+          <div class="ncm-stat-sub" id="ncm-stat-chronic-sub">at threshold</div>
+        </div>
+      </div>
+
+      <div class="ncm-section">
+        <div class="ncm-section-label">Period</div>
+        <div class="ncm-segctl" id="ncm-period-ctl">
+          <button data-period="2025">2025</button>
+          <button data-period="2026ytd">2026 YTD</button>
+          <button data-period="combined" class="is-active">Combined</button>
+        </div>
+      </div>
+
+      <div class="ncm-section">
+        <div class="ncm-section-label">Noise type</div>
+        <select class="ncm-select" id="ncm-subtype">
+          <option value="all">All types</option>
+        </select>
+      </div>
+
+      <div class="ncm-section">
+        <div class="ncm-section-label">Density view</div>
+        <div class="ncm-segctl" id="ncm-view-ctl">
+          <button data-view="heat" class="is-active">Heatmap</button>
+          <button data-view="hex">Grid</button>
+          <button data-view="off">Off</button>
+        </div>
+      </div>
+
+      <div class="ncm-section">
+        <div class="ncm-section-label">Show chronic addresses</div>
+        <div class="ncm-segctl" id="ncm-chronic-ctl">
+          <button data-chronic="on" class="is-active">On</button>
+          <button data-chronic="off">Off</button>
+        </div>
+      </div>
+
+      <div class="ncm-section" id="ncm-threshold-section">
+        <div class="ncm-section-label">Chronic threshold</div>
+        <div class="ncm-segctl" id="ncm-threshold-ctl">
+          <button data-threshold="25">25+</button>
+          <button data-threshold="50" class="is-active">50+</button>
+          <button data-threshold="100">100+</button>
+          <button data-threshold="200">200+</button>
+        </div>
+      </div>
+
+      <div class="ncm-section">
+        <div class="ncm-section-label">Heat color scale</div>
+        <div class="ncm-segctl" id="ncm-scale-ctl">
+          <button data-scale="linear">Linear</button>
+          <button data-scale="log" class="is-active">Log</button>
+        </div>
+      </div>
+
+      <div class="ncm-legend">
+        <div class="ncm-legend-title">Complaints per hex (~1 sq km)</div>
+        <div class="ncm-legend-bar"></div>
+        <div class="ncm-legend-labels" id="ncm-legend-labels">
+          <span>fewer</span><span>more</span>
+        </div>
+      </div>
+
+      <div class="ncm-toplist">
+        <div class="ncm-toplist-title">Top chronic addresses</div>
+        <div id="ncm-toplist"></div>
+      </div>
+
+      <div class="ncm-footer-meta">
+        <hr class="ncm-rule" style="margin:14px 0 10px;">
+        <details>
+          <summary>Methodology and notes</summary>
+          <p style="margin:6px 0 8px;">Source: NYC 311 Service Requests dataset (<code>erm2-nwe9</code>) on NYC Open Data. Filter: <code>complaint_type</code> begins with "Noise". Date field: <code>created_date</code>.</p>
+          <p style="margin:6px 0 8px;"><strong>What's a "chronic" address?</strong> A point on the map that has received at least the threshold number of complaints in the selected time window, after rounding lat/lng coordinates to roughly 50-meter blocks (so closely-spaced addresses are merged).</p>
+          <p style="margin:6px 0 8px;"><strong>Helicopter caveat:</strong> Helicopter noise complaints are filed against an address but the helicopter is rarely overhead — many cluster at LaGuardia, JFK, and Manhattan heliports rather than where residents heard it.</p>
+          <p style="margin:6px 0 8px;"><strong>What this map is not:</strong> a measurement of how loud New York is. It is a measurement of where and when residents called 311. Reporting rates vary by neighborhood, and many noise events go unreported.</p>
+          <p style="margin:6px 0;"><a href="methodology.md" target="_blank" rel="noopener">Full methodology →</a></p>
+        </details>
+        <p style="margin-top:10px;">Data refreshed <span id="ncm-refresh-date">—</span>. Built with <a href="https://leafletjs.com/">Leaflet</a> and <a href="https://h3geo.org/">H3</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="ncm-loading" id="ncm-loading">
+    <div class="ncm-loading-bar"></div>
+    <div class="ncm-loading-text">Loading complaints…</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const ROOT = document.getElementById('ncm-mount');
+  const $ = (id) => document.getElementById(id);
+
+  const STATE = {
+    period: 'combined',
+    subtype: 'all',
+    view: 'heat',          // heat | hex | off
+    chronicOn: true,
+    scale: 'log',
+    threshold: 50,
+    hexData: { '2025': null, '2026ytd': null, combined: null },
+    chronicData: { '2025': null, '2026ytd': null, combined: null },
+    meta: null,
+    map: null,
+    hexLayer: null,
+    heatLayer: null,
+    chronicLayer: null,
+  };
+
+  // ---------- Data loading ----------
+  async function loadJSON(path) {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function loadAll() {
+    const [meta, h25, h26, hC, c25, c26, cC] = await Promise.all([
+      loadJSON('data/meta.json'),
+      loadJSON('data/hex_2025.json'),
+      loadJSON('data/hex_2026ytd.json'),
+      loadJSON('data/hex_combined.json'),
+      loadJSON('data/chronic_2025.json'),
+      loadJSON('data/chronic_2026ytd.json'),
+      loadJSON('data/chronic_combined.json'),
+    ]);
+    STATE.meta = meta;
+    STATE.hexData['2025'] = h25;
+    STATE.hexData['2026ytd'] = h26;
+    STATE.hexData['combined'] = hC;
+    STATE.chronicData['2025'] = c25;
+    STATE.chronicData['2026ytd'] = c26;
+    STATE.chronicData['combined'] = cC;
+  }
+
+  // ---------- Color scaling ----------
+  const HEAT = ['#f4f1c0','#f0d674','#fb9e63','#fb693c','#ed5236','#d2232a'];
+
+  function makeColorFn(values, scale) {
+    if (!values.length) return () => HEAT[0];
+    const nonZero = values.filter(v => v > 0);
+    if (!nonZero.length) return () => HEAT[0];
+    const max = Math.max(...nonZero);
+    if (scale === 'log') {
+      const lmax = Math.log(max + 1);
+      return (v) => {
+        if (v <= 0) return null;
+        const t = Math.log(v + 1) / lmax;
+        return HEAT[Math.min(HEAT.length - 1, Math.floor(t * HEAT.length))];
+      };
+    } else {
+      return (v) => {
+        if (v <= 0) return null;
+        const t = v / max;
+        return HEAT[Math.min(HEAT.length - 1, Math.floor(t * HEAT.length))];
+      };
+    }
+  }
+
+  function makeLegendThresholds(values, scale) {
+    const max = values.length ? Math.max(...values) : 0;
+    if (max <= 0) return ['0','—'];
+    if (scale === 'log') {
+      // 5 evenly-spaced log breakpoints
+      const lmax = Math.log(max + 1);
+      const out = [];
+      for (let i = 0; i < 6; i++) {
+        out.push(Math.round(Math.exp((i / 5) * lmax) - 1));
+      }
+      return out;
+    } else {
+      const out = [];
+      for (let i = 0; i < 6; i++) {
+        out.push(Math.round((i / 5) * max));
+      }
+      return out;
+    }
+  }
+
+  // ---------- Building layers ----------
+  function getHexValue(hexEntry, subIdx) {
+    // hexEntry = [hexId, total, [counts]]
+    if (subIdx === -1) return hexEntry[1];
+    return hexEntry[2][subIdx] || 0;
+  }
+
+  function rebuildHeatLayer() {
+    if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
+    const data = STATE.hexData[STATE.period];
+    if (!data) return;
+    const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+
+    // Use hex centroids weighted by count. Transform weights for log scale so
+    // residential noise doesn't blow out everything else.
+    const points = [];
+    for (const h of data.hexes) {
+      const v = getHexValue(h, subIdx);
+      if (v <= 0) continue;
+      const [lat, lng] = h3.cellToLatLng(h[0]);
+      points.push([lat, lng, v]);
+    }
+    if (!points.length) return;
+
+    // Cap the scale at the 95th percentile so a single outlier hex
+    // (helicopter complaints centroided at LGA, etc.) doesn't wash out the rest.
+    const sortedVals = points.map(p => p[2]).sort((a, b) => a - b);
+    const p95 = sortedVals[Math.floor(sortedVals.length * 0.95)] || sortedVals[sortedVals.length - 1] || 1;
+    const maxRaw = p95;
+
+    let weighted;
+    if (STATE.scale === 'log') {
+      const lmax = Math.log(maxRaw + 1);
+      weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, Math.log(v + 1) / lmax)]);
+    } else {
+      weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, v / maxRaw)]);
+    }
+    const maxW = 1;
+
+    STATE.heatLayer = L.heatLayer(weighted, {
+      radius: 38,
+      blur: 32,
+      max: maxW,
+      maxZoom: 13,
+      minOpacity: 0.22,
+      gradient: {
+        0.0: '#fff7d6',
+        0.25: '#ffe08a',
+        0.45: '#ffb46b',
+        0.65: '#ff7c53',
+        0.82: '#ed5236',
+        1.0:  '#b51e26',
+      },
+    });
+    if (STATE.view === 'heat') STATE.heatLayer.addTo(STATE.map);
+
+    // legend labels for heat view
+    if (STATE.view === 'heat') {
+      const labels = $('ncm-legend-labels');
+      const breaks = makeLegendThresholds(points.map(p => p[2]), STATE.scale);
+      labels.innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+    }
+  }
+
+  function rebuildHexLayer() {
+    if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
+    const data = STATE.hexData[STATE.period];
+    if (!data) return;
+    const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+    const values = data.hexes.map(h => getHexValue(h, subIdx));
+    const colorOf = makeColorFn(values, STATE.scale);
+
+    const layer = L.layerGroup();
+    let total = 0;
+    for (let i = 0; i < data.hexes.length; i++) {
+      const v = values[i];
+      if (v <= 0) continue;
+      total += v;
+      const color = colorOf(v);
+      if (!color) continue;
+      const boundary = h3.cellToBoundary(data.hexes[i][0]);
+      const poly = L.polygon(boundary, {
+        fillColor: color,
+        fillOpacity: 0.78,
+        color: '#050507',
+        weight: 0.4,
+        opacity: 0.45,
+      });
+      const top3 = data.hexes[i][2]
+        .map((n, idx) => [data.subtypes[idx], n])
+        .filter(([, n]) => n > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+      const tot = data.hexes[i][1];
+      poly.bindPopup(`
+        <div>
+          <div class="ncm-pop-kicker">Hex cell · ${periodLabel(STATE.period)}</div>
+          <div class="ncm-pop-big-label">Complaints in this cell</div>
+          <div class="ncm-pop-big">${v.toLocaleString()}</div>
+          ${STATE.subtype === 'all' && top3.length ? `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#707175;margin-top:10px;font-weight:600;">Top types</div>${top3.map(([s, n]) => `<div class='ncm-pop-bar-row'><span class='lbl'>${s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${Math.round(100 * n / tot)}%'></span></div>`).join('')}` : ''}
+        </div>
+      `, { className: 'ncm-popup' });
+      layer.addLayer(poly);
+    }
+    STATE.hexLayer = layer;
+    if (STATE.view === 'hex') layer.addTo(STATE.map);
+
+    if (STATE.view === 'hex') {
+      const breaks = makeLegendThresholds(values.filter(v => v > 0), STATE.scale);
+      const labels = $('ncm-legend-labels');
+      labels.innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+    }
+    return total;
+  }
+
+  function rebuildChronicLayer() {
+    if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
+    const data = STATE.chronicData[STATE.period];
+    if (!data) return 0;
+    const layer = L.layerGroup();
+    const items = [];
+    for (const loc of data.locations) {
+      const subN = STATE.subtype === 'all' ? loc.n : (loc.subs[STATE.subtype] || 0);
+      if (subN < STATE.threshold) continue;
+      items.push({ loc, subN });
+    }
+    items.sort((a, b) => b.subN - a.subN);
+    STATE.chronicItems = items;
+
+    // Progressive disclosure: at citywide zoom we only render the top N worst,
+    // then reveal more as the user zooms in. Keeps the overview legible without
+    // throwing away data — every chronic location is reachable by zooming.
+    const zoom = STATE.map ? STATE.map.getZoom() : 11;
+    let renderCap;
+    if (zoom <= 11) renderCap = 250;
+    else if (zoom <= 12) renderCap = 600;
+    else if (zoom <= 13) renderCap = 1500;
+    else renderCap = items.length;
+    const toRender = items.slice(0, renderCap);
+
+    // Zoom-dependent radius
+    const sizeMult = zoom <= 11 ? 0.85 : zoom <= 13 ? 1.0 : 1.25;
+
+    for (const { loc, subN } of toRender) {
+      const radius = Math.max(1.8, Math.min(7, (1.6 + Math.sqrt(subN) * 0.13) * sizeMult));
+      const m = L.circleMarker([loc.lat, loc.lng], {
+        radius,
+        fillColor: '#0a0a0a',
+        fillOpacity: 0.72,
+        stroke: false,
+      });
+
+      // Build subtype breakdown
+      const subEntries = Object.entries(loc.subs).sort((a, b) => b[1] - a[1]);
+      const subRows = subEntries.slice(0, 5).map(([s, n]) => {
+        const w = Math.round(100 * n / loc.n);
+        return `<div class='ncm-pop-bar-row'><span class='lbl'>${s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${w}%'></span></div>`;
+      }).join('');
+
+      m.bindPopup(`
+        <div>
+          <div class="ncm-pop-kicker">Chronic noise address · ${periodLabel(STATE.period)}</div>
+          <div class="ncm-pop-addr">${loc.addr || 'Unmarked location'}</div>
+          <div class="ncm-pop-meta">${loc.boro || ''}</div>
+          <div style="display:flex;gap:18px;align-items:flex-end;margin-bottom:8px;">
+            <div>
+              <div class="ncm-pop-big-label">${STATE.subtype === 'all' ? 'Total complaints' : STATE.subtype.replace(/^Noise[\\s\\-]*/, '')}</div>
+              <div class="ncm-pop-big">${subN.toLocaleString()}</div>
+            </div>
+            ${STATE.subtype !== 'all' ? `<div style='font-size:11px;color:#707175;padding-bottom:4px;'>of ${loc.n.toLocaleString()} total</div>` : ''}
+          </div>
+          ${loc.top_desc ? `<div style="font-size:11px;color:#707175;margin-bottom:8px;"><strong style="color:#050507;">Most common:</strong> ${loc.top_desc}</div>` : ''}
+          ${subRows ? `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#707175;font-weight:600;margin-bottom:4px;">Type breakdown</div>${subRows}` : ''}
+        </div>
+      `, { className: 'ncm-popup', maxWidth: 320 });
+      m._loc = loc; m._subN = subN;
+      layer.addLayer(m);
+    }
+    STATE.chronicLayer = layer;
+    if (STATE.chronicOn) layer.addTo(STATE.map);
+
+    // top list always shows top 12 from full filtered set, not the rendered subset
+    renderTopList(items.slice(0, 12));
+    return items.length;
+  }
+
+  // Re-render chronic dots when zoom changes so the disclosure tier updates
+  function attachZoomHandler() {
+    if (STATE._zoomHandlerAttached) return;
+    STATE._zoomHandlerAttached = true;
+    let lastZoom = STATE.map.getZoom();
+    STATE.map.on('zoomend', () => {
+      const z = STATE.map.getZoom();
+      // Only rebuild if we crossed a tier boundary
+      const tier = (zoom) => zoom <= 11 ? 0 : zoom <= 12 ? 1 : zoom <= 13 ? 2 : 3;
+      if (tier(z) !== tier(lastZoom)) {
+        rebuildChronicLayer();
+      }
+      lastZoom = z;
+    });
+  }
+
+  function renderTopList(items) {
+    const el = $('ncm-toplist');
+    if (!items.length) {
+      el.innerHTML = '<div style="font-size:12px;color:#707175;padding:8px 0;">No addresses meet the threshold for this filter.</div>';
+      return;
+    }
+    el.innerHTML = items.map((it, i) => `
+      <div class="ncm-toplist-item" data-lat="${it.loc.lat}" data-lng="${it.loc.lng}">
+        <span class="ncm-toplist-rank">${i + 1}</span>
+        <span class="ncm-toplist-addr">${it.loc.addr || 'Unmarked'}<br><span style="color:#707175;font-size:10.5px;">${it.loc.boro || ''}</span></span>
+        <span class="ncm-toplist-count">${it.subN.toLocaleString()}</span>
+      </div>
+    `).join('');
+    el.querySelectorAll('.ncm-toplist-item').forEach(node => {
+      node.addEventListener('click', () => {
+        STATE.map.flyTo([parseFloat(node.dataset.lat), parseFloat(node.dataset.lng)], 16, { duration: 0.8 });
+      });
+    });
+  }
+
+  function periodLabel(p) {
+    if (p === '2025') return '2025';
+    if (p === '2026ytd') return '2026 year-to-date';
+    return '2025 + 2026 YTD';
+  }
+
+  // ---------- Stats / chrome ----------
+  function updateStats() {
+    const data = STATE.hexData[STATE.period];
+    let total = 0;
+    if (data) {
+      const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+      for (const h of data.hexes) total += getHexValue(h, subIdx);
+    }
+    $('ncm-stat-total').textContent = total.toLocaleString();
+    $('ncm-stat-total-sub').textContent = `${STATE.subtype === 'all' ? 'all noise types' : STATE.subtype.toLowerCase()} · ${periodLabel(STATE.period)}`;
+
+    // chronic count = number plotted
+    const cd = STATE.chronicData[STATE.period];
+    let chronicCount = 0;
+    if (cd) {
+      for (const loc of cd.locations) {
+        const subN = STATE.subtype === 'all' ? loc.n : (loc.subs[STATE.subtype] || 0);
+        if (subN >= STATE.threshold) chronicCount++;
+      }
+    }
+    $('ncm-stat-chronic').textContent = chronicCount.toLocaleString();
+    $('ncm-stat-chronic-sub').textContent = `${STATE.threshold}+ complaints`;
+  }
+
+  // ---------- Init ----------
+  async function init() {
+    STATE.map = L.map('ncm-map', {
+      center: [40.73, -73.95],
+      zoom: 11, minZoom: 9, maxZoom: 18,
+      zoomControl: false,
+      preferCanvas: true,
+    });
+    L.control.zoom({ position: 'topright' }).addTo(STATE.map);
+
+    // CARTO Voyager (no labels) — neutral light editorial basemap
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Data: NYC 311',
+      subdomains: 'abcd', maxZoom: 19,
+    }).addTo(STATE.map);
+    // Labels on top
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd', maxZoom: 19, pane: 'shadowPane',
+    }).addTo(STATE.map);
+
+    await loadAll();
+
+    // Populate subtype dropdown from meta
+    const sel = $('ncm-subtype');
+    for (const s of STATE.meta.subtypes) {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    }
+
+    // Refresh date
+    if (STATE.meta.generated) {
+      const d = new Date(STATE.meta.generated);
+      $('ncm-refresh-date').textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // Wire up controls
+    document.querySelectorAll('#ncm-period-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-period-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.period = b.dataset.period;
+        rerender();
+      });
+    });
+    document.querySelectorAll('#ncm-view-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-view-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.view = b.dataset.view;
+        applyVisibility();
+      });
+    });
+    document.querySelectorAll('#ncm-chronic-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-chronic-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.chronicOn = b.dataset.chronic === 'on';
+        applyVisibility();
+      });
+    });
+    document.querySelectorAll('#ncm-scale-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-scale-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.scale = b.dataset.scale;
+        rebuildHeatLayer();
+        rebuildHexLayer();
+      });
+    });
+    sel.addEventListener('change', () => {
+      STATE.subtype = sel.value;
+      rerender();
+    });
+    document.querySelectorAll('#ncm-threshold-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-threshold-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.threshold = parseInt(b.dataset.threshold, 10);
+        rebuildChronicLayer();
+        updateStats();
+      });
+    });
+
+    // First render
+    rerender();
+    attachZoomHandler();
+    $('ncm-loading').classList.add('is-hidden');
+  }
+
+  function rerender() {
+    rebuildHeatLayer();
+    rebuildHexLayer();
+    rebuildChronicLayer();
+    updateStats();
+  }
+
+  function applyVisibility() {
+    if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
+    if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
+    if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
+    if (STATE.view === 'heat' && STATE.heatLayer) STATE.heatLayer.addTo(STATE.map);
+    if (STATE.view === 'hex' && STATE.hexLayer) STATE.hexLayer.addTo(STATE.map);
+    if (STATE.chronicOn && STATE.chronicLayer) STATE.chronicLayer.addTo(STATE.map);
+
+    // Refresh legend labels for current view
+    const data = STATE.hexData[STATE.period];
+    if (data && (STATE.view === 'heat' || STATE.view === 'hex')) {
+      const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+      const values = data.hexes.map(h => getHexValue(h, subIdx)).filter(v => v > 0);
+      const breaks = makeLegendThresholds(values, STATE.scale);
+      $('ncm-legend-labels').innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+    }
+  }
+
+  init().catch(err => {
+    console.error(err);
+    $('ncm-loading').innerHTML = `<div class="ncm-loading-text" style="color:#d2232a;">Failed to load data — ${err.message}</div>`;
+  });
+})();
+</script>
+</body>
+</html>
