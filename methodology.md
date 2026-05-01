@@ -1,8 +1,10 @@
-# Methodology — New York City 311 noise complaints map
+# Methodology — New York City noise complaints + DEP violations map
 
 This document describes how the data behind the map is collected, filtered, aggregated, and rendered. Nothing here should be a black box.
 
-## Data source
+The map combines two distinct datasets: 311 noise complaints (who *calls* about noise) and DEP-issued noise-code violations (where the city actually *fines* for it). They are not the same thing — and the gap between them is part of what the map is for.
+
+## Data source 1 — 311 noise complaints
 
 - **Dataset:** NYC 311 Service Requests on NYC Open Data — Socrata ID `erm2-nwe9`.
 - **API:** `https://data.cityofnewyork.us/resource/erm2-nwe9.json`.
@@ -57,6 +59,28 @@ A chronic address is a ~50m point on the map with at least the threshold number 
 - **Top-N rendering at low zoom.** At citywide zoom, only the top 250 worst chronic addresses are drawn as dots, even when more meet the threshold. As you zoom in, more are revealed: up to 600 at zoom 12, 1,500 at zoom 13, and all of them at zoom 14 and higher. The "Chronic addresses" stat in the panel is the full count regardless of zoom.
 - **Coordinate rounding.** Lat/lng are rounded to ~50m blocks before counting. Two complaints at addresses 20 meters apart are treated as the same chronic location. This produces fewer, more useful pins than treating every distinct street address as its own location.
 - **Marker style.** Dots scale gently with complaint count and are deliberately small and dark so they read as editorial pinpoints on top of the heatmap rather than competing with it.
+
+## Data source 2 — DEP noise-code violations
+
+- **Dataset:** OATH Hearings Division Case Status on NYC Open Data — Socrata ID `jz4z-kudi`. This dataset records every administrative violation processed through the Office of Administrative Trials and Hearings.
+- **Filter:** `issuing_agency = 'DEP - BUREAU OF ENV. COMPLIANC'` AND `charge_1_code` begins with "BN" (the noise-code section). Date floor: 2025-01-01.
+- **Categories used in the legend:**
+  - **Vehicle sound (noise-camera tickets)** — charge codes BNZ6 / BNZ7 / BNZ8: "Cause/permit sound from motor vehicle on public ROW VTL limit." These are the actual noise-camera enforcement tickets, issued under the "Stop Spreading the Noise Act" (Local Law 75 of 2021).
+  - **Construction / HVAC noise** — BN14, BN17, BN20, BN29, BN30, BN32, BN5V, BNC4, etc. Construction at impermissible times, missing or unimplemented noise-mitigation plans, and HVAC ("circulation device") sound exceeding 42 dB(A).
+  - **Commercial music / unreasonable noise** — BN10, BN37, BN60: music from a commercial establishment over permitted levels, or general "unreasonable noise" violations.
+  - **Vehicle horn / personal audio** — BN42, BN49: unauthorized horn use, personal audio device in a motor vehicle.
+  - **Other** — every other BN* code.
+- **Geocoding:** the OATH dataset gives `violation_location_house` + `violation_location_street_name` + `violation_location_borough` but no lat/lng. We geocode the unique violation addresses through [NYC Planning Labs Geosearch](https://geosearch.planninglabs.nyc) (free, public, no API key). Results are cached in `scripts/.geocode_cache.json` so subsequent builds only geocode new addresses.
+- **Note on noise-camera locations.** DEP does not publish the physical locations of its noise cameras (the agency cites concerns about vandalism and gaming the system). This map does not show camera locations directly. What it shows are the *addresses where noise-camera tickets were issued* — which collectively reveal where the cameras are operating.
+
+## Why complaints and violations both matter
+
+A 311 complaint is a resident saying "this is too loud." A DEP violation is the city saying "we agree, here's a fine." The two datasets answer different questions:
+
+- Where do residents *call* about noise? (complaints)
+- Where does the city *enforce* against it? (violations)
+
+Some places are loud and complained about but rarely enforced (residential apartment noise; bars in nightlife corridors). Some places have heavy enforcement that 311 complaints alone don't surface (specific stretches where noise cameras have been deployed). Toggling the layers makes the gap visible.
 
 ## Helicopter complaint caveat
 

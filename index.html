@@ -208,6 +208,15 @@
   font-size: 10px; color: var(--ncm-charcoal); margin-top: 4px;
 }
 
+.ncm-vio-row { display:grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items:center; padding: 3px 0; font-size: 11.5px; }
+.ncm-vio-dot { display:inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.ncm-vio-row[data-cat="vehicle_noise_camera"] .ncm-vio-dot { background: #217ebe; }
+.ncm-vio-row[data-cat="vehicle_other"] .ncm-vio-dot { background: #394882; }
+.ncm-vio-row[data-cat="construction_or_circulation"] .ncm-vio-dot { background: #ff7c53; }
+.ncm-vio-row[data-cat="commercial_music_or_unreasonable"] .ncm-vio-dot { background: #e7466d; }
+.ncm-vio-row[data-cat="other"] .ncm-vio-dot { background: #707175; }
+.ncm-vio-n { font-variant-numeric: tabular-nums; color: var(--ncm-charcoal); font-size: 10.5px; }
+
 .ncm-toplist { margin-top: 12px; }
 .ncm-toplist-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
 .ncm-toplist-item {
@@ -299,9 +308,9 @@
 
   <div class="ncm-panel">
     <div class="ncm-panel-inner">
-      <div class="ncm-kicker">Sound and the city <span style="opacity:0.4">/</span> 311 noise complaints</div>
-      <h1 class="ncm-title">Where New York calls 311 about noise</h1>
-      <p class="ncm-deck">Every 311 noise complaint in 2025 and year-to-date 2026, mapped citywide. Filter by type and surface chronic addresses.</p>
+      <div class="ncm-kicker">Sound and the city <span style="opacity:0.4">/</span> 311 complaints + DEP violations</div>
+      <h1 class="ncm-title">Who calls 311 about noise — and where the city issues tickets</h1>
+      <p class="ncm-deck">Every 311 noise complaint in 2025 and year-to-date 2026, plus every DEP noise-code violation issued in the same window — including the noise-camera tickets for loud vehicles.</p>
 
       <div class="ncm-mode" id="ncm-mode">
         <button class="ncm-mode-btn is-active" data-mode="full">
@@ -365,6 +374,27 @@
           <button data-chronic="on" class="is-active">On</button>
           <button data-chronic="off">Off</button>
         </div>
+        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
+          Dark dots: 311 addresses receiving 50+ noise complaints in the period.
+        </div>
+      </div>
+
+      <div class="ncm-section" id="ncm-violations-section">
+        <div class="ncm-section-label">Show DEP noise violations</div>
+        <div class="ncm-segctl" id="ncm-violations-ctl">
+          <button data-violations="on">On</button>
+          <button data-violations="off" class="is-active">Off</button>
+        </div>
+        <div id="ncm-violations-legend" style="margin-top:8px;display:none;">
+          <div class="ncm-vio-row" data-cat="vehicle_noise_camera"><span class="ncm-vio-dot"></span><span class="ncm-vio-lbl">Vehicle sound · noise-camera tickets</span><span class="ncm-vio-n"></span></div>
+          <div class="ncm-vio-row" data-cat="construction_or_circulation"><span class="ncm-vio-dot"></span><span class="ncm-vio-lbl">Construction / HVAC noise</span><span class="ncm-vio-n"></span></div>
+          <div class="ncm-vio-row" data-cat="commercial_music_or_unreasonable"><span class="ncm-vio-dot"></span><span class="ncm-vio-lbl">Commercial music / unreasonable</span><span class="ncm-vio-n"></span></div>
+          <div class="ncm-vio-row" data-cat="vehicle_other"><span class="ncm-vio-dot"></span><span class="ncm-vio-lbl">Vehicle horn / audio</span><span class="ncm-vio-n"></span></div>
+          <div class="ncm-vio-row" data-cat="other"><span class="ncm-vio-dot"></span><span class="ncm-vio-lbl">Other noise code</span><span class="ncm-vio-n"></span></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
+          Colored markers: every DEP noise-code violation issued since Jan 2025. Vehicle-sound tickets are issued by the noise-camera program.
+        </div>
       </div>
 
       <div class="ncm-section" id="ncm-threshold-section">
@@ -426,16 +456,27 @@
     subtype: 'all',
     bucket: 'all',         // 'all' or 0..3
     chronicOn: true,
+    violationsOn: false,
     scale: 'log',
     threshold: 50,
     hexData: { '2025': null, '2026ytd': null, combined: null },
     chronicData: { '2025': null, '2026ytd': null, combined: null },
     saturdayData: null,
+    violationsData: null,
     meta: null,
     map: null,
     hexLayer: null,
     chronicLayer: null,
     saturdayLayer: null,
+    violationsLayer: null,
+  };
+
+  const VIO_COLORS = {
+    vehicle_noise_camera: '#217ebe',
+    vehicle_other: '#394882',
+    construction_or_circulation: '#ff7c53',
+    commercial_music_or_unreasonable: '#e7466d',
+    other: '#707175',
   };
 
   function selectedBuckets() {
@@ -450,7 +491,7 @@
   }
 
   async function loadAll() {
-    const [meta, h25, h26, hC, c25, c26, cC, sat] = await Promise.all([
+    const [meta, h25, h26, hC, c25, c26, cC, sat, vio] = await Promise.all([
       loadJSON('data/meta.json'),
       loadJSON('data/hex_2025.json'),
       loadJSON('data/hex_2026ytd.json'),
@@ -459,6 +500,7 @@
       loadJSON('data/chronic_2026ytd.json'),
       loadJSON('data/chronic_combined.json'),
       loadJSON('data/saturday_night.json').catch(() => null),
+      loadJSON('data/violations.json').catch(() => null),
     ]);
     STATE.meta = meta;
     STATE.hexData['2025'] = h25;
@@ -468,6 +510,7 @@
     STATE.chronicData['2026ytd'] = c26;
     STATE.chronicData['combined'] = cC;
     STATE.saturdayData = sat;
+    STATE.violationsData = vio;
   }
 
   // ---------- Color scaling ----------
@@ -916,6 +959,19 @@
         applyVisibility();
       });
     });
+    document.querySelectorAll('#ncm-violations-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-violations-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.violationsOn = b.dataset.violations === 'on';
+        $('ncm-violations-legend').style.display = STATE.violationsOn ? '' : 'none';
+        applyVisibility();
+      });
+    });
+    // Hide violations toggle if data is missing
+    if (!STATE.violationsData) {
+      const sec = $('ncm-violations-section');
+      if (sec) sec.style.display = 'none';
+    }
     sel.addEventListener('change', () => {
       STATE.subtype = sel.value;
       rerender();
@@ -1026,7 +1082,7 @@
   function applyMode() {
     // Show/hide controls that don't make sense in Saturday-night mode
     const hideFullOnly = STATE.mode === 'saturday';
-    const fullOnlySelectors = ['#ncm-period-ctl', '#ncm-threshold-section', '#ncm-chronic-ctl'];
+    const fullOnlySelectors = ['#ncm-period-ctl', '#ncm-threshold-section', '#ncm-chronic-ctl', '#ncm-violations-section'];
     fullOnlySelectors.forEach(sel => {
       const el = document.querySelector(sel);
       if (!el) return;
@@ -1042,10 +1098,59 @@
     rerender();
   }
 
+  function rebuildViolationsLayer() {
+    if (STATE.violationsLayer) STATE.map.removeLayer(STATE.violationsLayer);
+    const data = STATE.violationsData;
+    if (!data) return;
+    const layer = L.layerGroup();
+    let plotted = 0;
+    const catCounts = {};
+    for (const p of data.points) {
+      // [lat, lng, cat, code, desc, date, addr, boro]
+      const [lat, lng, cat, code, desc, date, addr, boro] = p;
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+      const m = L.circleMarker([lat, lng], {
+        radius: cat === 'vehicle_noise_camera' ? 4.5 : 3.6,
+        fillColor: VIO_COLORS[cat] || '#707175',
+        fillOpacity: 0.85,
+        color: '#fff',
+        weight: 0.6,
+        opacity: 0.9,
+      });
+      m.bindPopup(`
+        <div>
+          <div class="ncm-pop-kicker">DEP noise violation · ${date}</div>
+          <div class="ncm-pop-addr">${addr || 'Unmarked location'}</div>
+          <div class="ncm-pop-meta">${boro || ''}</div>
+          <div style="font-size:11.5px;color:var(--ncm-black);margin-top:6px;line-height:1.4;">${desc}</div>
+          <div style="font-size:10px;color:var(--ncm-charcoal);margin-top:4px;letter-spacing:0.06em;text-transform:uppercase;">Charge ${code}</div>
+        </div>
+      `);
+      layer.addLayer(m);
+      plotted++;
+    }
+    STATE.violationsLayer = layer;
+    if (STATE.violationsOn) layer.addTo(STATE.map);
+
+    // populate legend counts
+    const legendEl = $('ncm-violations-legend');
+    if (legendEl) {
+      legendEl.querySelectorAll('.ncm-vio-row').forEach(row => {
+        const cat = row.dataset.cat;
+        const n = catCounts[cat] || 0;
+        const numEl = row.querySelector('.ncm-vio-n');
+        if (numEl) numEl.textContent = n.toLocaleString();
+        row.style.display = n > 0 ? '' : 'none';
+      });
+    }
+    return plotted;
+  }
+
   function rerender() {
     if (STATE.mode === 'saturday') {
       if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
       if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
+      if (STATE.violationsLayer) STATE.map.removeLayer(STATE.violationsLayer);
       rebuildSaturdayLayer();
       updateStats();
       return;
@@ -1053,14 +1158,17 @@
     if (STATE.saturdayLayer) STATE.map.removeLayer(STATE.saturdayLayer);
     rebuildHexLayer();
     rebuildChronicLayer();
+    rebuildViolationsLayer();
     updateStats();
   }
 
   function applyVisibility() {
     if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
     if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
+    if (STATE.violationsLayer) STATE.map.removeLayer(STATE.violationsLayer);
     if (STATE.mode === 'full' && STATE.hexLayer) STATE.hexLayer.addTo(STATE.map);
     if (STATE.chronicOn && STATE.chronicLayer) STATE.chronicLayer.addTo(STATE.map);
+    if (STATE.violationsOn && STATE.violationsLayer) STATE.violationsLayer.addTo(STATE.map);
   }
 
   init().catch(err => {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-01T15:43:53+00:00",
+  "generated": "2026-05-01T20:54:55+00:00",
   "since": "2025-01-01T00:00:00",
   "until": "2026-05-01T00:00:00",
   "total_rows": 1036164,
@@ -28,5 +28,7 @@
   "min_chronic": 10,
   "hex_resolution": 8,
   "saturday_date": "2026-04-25",
-  "saturday_count": 1301
+  "saturday_count": 1301,
+  "violations_fetched": 3903,
+  "violations_plotted": 3815
 }

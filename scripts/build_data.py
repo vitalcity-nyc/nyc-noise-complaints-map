@@ -40,6 +40,8 @@ except ImportError:
     sys.exit(1)
 
 API_BASE = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
+OATH_API = "https://data.cityofnewyork.us/resource/jz4z-kudi.json"
+GEOSEARCH_API = "https://geosearch.planninglabs.nyc/v2/search"
 DEFAULT_SINCE = "2025-01-01T00:00:00"
 DEFAULT_UNTIL = "2026-05-01T00:00:00"  # exclusive
 PAGE_SIZE = 50000
@@ -427,6 +429,145 @@ def main() -> int:
     (out_dir / "saturday_night.json").write_text(json.dumps(saturday_payload, separators=(",", ":")))
     sys.stderr.write(f"Wrote {out_dir/'saturday_night.json'} ({len(sat_points):,} points)\n")
 
+    # ---- DEP noise violations (OATH dataset) ----
+    # Fetch every DEP-issued violation under the noise code (BN* charge codes)
+    # since 2025-01-01. Includes vehicle noise camera tickets (BNZ6/7/8),
+    # construction noise, HVAC, music, idling-adjacent codes. Then geocode
+    # the violation addresses via NYC Planning Labs Geosearch (free, no key).
+    sys.stderr.write("\nFetching DEP noise violations from OATH (jz4z-kudi)...\n")
+    viol_rows = []
+    voff = 0
+    voath_select = ",".join([
+        "ticket_number","violation_date","violation_time","charge_1_code","charge_1_code_description",
+        "violation_location_borough","violation_location_house","violation_location_street_name",
+        "violation_location_zip_code",
+    ])
+    voath_where = (
+        "issuing_agency='DEP - BUREAU OF ENV. COMPLIANC' "
+        "AND charge_1_code LIKE 'BN%' "
+        "AND violation_date>='2025-01-01T00:00:00'"
+    )
+    while True:
+        qs = urllib.parse.urlencode({
+            "$select": voath_select, "$where": voath_where,
+            "$order": "violation_date", "$limit": PAGE_SIZE, "$offset": voff,
+        })
+        page = http_get_json(f"{OATH_API}?{qs}")
+        if not page:
+            break
+        viol_rows.extend(page)
+        if len(page) < PAGE_SIZE:
+            break
+        voff += PAGE_SIZE
+    sys.stderr.write(f"DEP noise violations fetched: {len(viol_rows):,}\n")
+
+    # Geocode unique addresses (cache file alongside data dir)
+    geocode_cache_path = HERE / "scripts" / ".geocode_cache.json"
+    if geocode_cache_path.exists():
+        try:
+            geocode_cache = json.loads(geocode_cache_path.read_text())
+        except json.JSONDecodeError:
+            geocode_cache = {}
+    else:
+        geocode_cache = {}
+
+    def addr_key(r):
+        h = (r.get("violation_location_house") or "").strip().upper()
+        s = (r.get("violation_location_street_name") or "").strip().upper()
+        b = (r.get("violation_location_borough") or "").strip().upper()
+        z = (r.get("violation_location_zip_code") or "").strip()
+        if not h or not s:
+            return None
+        return f"{h} {s}, {b} {z}".strip()
+
+    def geocode(text):
+        if text in geocode_cache:
+            return geocode_cache[text]
+        qs = urllib.parse.urlencode({"text": text, "size": 1})
+        try:
+            data = http_get_json(f"{GEOSEARCH_API}?{qs}", retries=2)
+            features = data.get("features") if isinstance(data, dict) else None
+            if features and len(features) > 0:
+                lng, lat = features[0]["geometry"]["coordinates"]
+                geocode_cache[text] = [round(lat, 6), round(lng, 6)]
+            else:
+                geocode_cache[text] = None
+        except Exception:
+            geocode_cache[text] = None
+        return geocode_cache[text]
+
+    unique_addrs = set()
+    for r in viol_rows:
+        k = addr_key(r)
+        if k:
+            unique_addrs.add(k)
+    sys.stderr.write(f"Unique violation addresses to geocode: {len(unique_addrs):,}\n")
+
+    new_geocode_count = 0
+    for i, k in enumerate(unique_addrs):
+        if k in geocode_cache:
+            continue
+        geocode(k)
+        new_geocode_count += 1
+        if new_geocode_count % 100 == 0:
+            sys.stderr.write(f"  geocoded {new_geocode_count}...\n")
+            geocode_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            geocode_cache_path.write_text(json.dumps(geocode_cache))
+        time.sleep(0.05)
+    if new_geocode_count > 0:
+        geocode_cache_path.write_text(json.dumps(geocode_cache))
+        sys.stderr.write(f"  geocoded {new_geocode_count} new addresses\n")
+
+    # Categorize charge codes for filter / popup labels
+    def categorize(code):
+        if code is None: return "other"
+        if code in ("BNZ6","BNZ7","BNZ8"): return "vehicle_noise_camera"
+        if code in ("BN42","BN49"): return "vehicle_other"
+        if code.startswith("BN1") or code.startswith("BN2") or code.startswith("BN3") or code.startswith("BN5") or code in ("BN14","BN20","BN32"): return "construction_or_circulation"
+        if code in ("BN37","BN10","BN60"): return "commercial_music_or_unreasonable"
+        return "other"
+
+    viol_points = []
+    cat_counts = defaultdict(int)
+    for r in viol_rows:
+        k = addr_key(r)
+        if not k: continue
+        coords = geocode_cache.get(k)
+        if not coords: continue
+        lat, lng = coords
+        if not (40.4 < lat < 41.0 and -74.3 < lng < -73.6):
+            continue
+        cat = categorize(r.get("charge_1_code"))
+        cat_counts[cat] += 1
+        viol_points.append([
+            round(lat, 5), round(lng, 5), cat,
+            r.get("charge_1_code") or "",
+            (r.get("charge_1_code_description") or "").title()[:80],
+            (r.get("violation_date") or "")[:10],
+            f"{r.get('violation_location_house','')} {r.get('violation_location_street_name','')}".strip().title()[:80],
+            (r.get("violation_location_borough") or "").title(),
+        ])
+    sys.stderr.write(f"Violations geocoded + plotted: {len(viol_points):,}\n")
+    for c, n in sorted(cat_counts.items(), key=lambda x: -x[1]):
+        sys.stderr.write(f"  {n:>5,}  {c}\n")
+
+    violations_payload = {
+        "categories": {
+            "vehicle_noise_camera": "Vehicle sound (noise camera tickets)",
+            "vehicle_other": "Vehicle horn / personal audio",
+            "construction_or_circulation": "Construction / HVAC noise",
+            "commercial_music_or_unreasonable": "Commercial music / unreasonable noise",
+            "other": "Other noise code",
+        },
+        "fetched_count": len(viol_rows),
+        "plotted_count": len(viol_points),
+        "category_counts": dict(cat_counts),
+        "since": "2025-01-01",
+        "points": viol_points,
+    }
+    (out_dir / "violations.json").write_text(json.dumps(violations_payload, separators=(",", ":")))
+    sys.stderr.write(f"Wrote {out_dir/'violations.json'} ({len(viol_points):,} points)\n")
+
     meta = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "since": since, "until": until,
@@ -439,6 +580,8 @@ def main() -> int:
         "hex_resolution": HEX_RES,
         "saturday_date": last_sat_date.isoformat(),
         "saturday_count": len(sat_points),
+        "violations_fetched": len(viol_rows),
+        "violations_plotted": len(viol_points),
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     sys.stderr.write(f"Wrote {out_dir/'meta.json'}\n")
