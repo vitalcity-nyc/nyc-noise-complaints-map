@@ -11,7 +11,6 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <style>
 /* All styles scoped under .ncm-root so this can be embedded inside a Ghost post or any
    other page without leaking. The standalone view at index.html wraps the body in .ncm-root
@@ -359,17 +358,6 @@
         </div>
       </div>
 
-      <div class="ncm-section">
-        <div class="ncm-section-label">Density view</div>
-        <div class="ncm-segctl" id="ncm-view-ctl">
-          <button data-view="heat" class="is-active">Heatmap</button>
-          <button data-view="hex">Grid</button>
-        </div>
-        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
-          <strong style="color:var(--ncm-black);">Heatmap:</strong> smooth kernel density — best for the overall pattern.
-          <strong style="color:var(--ncm-black);">Grid:</strong> hex cells (~1 sq km each) with click-for-counts.
-        </div>
-      </div>
 
       <div class="ncm-section">
         <div class="ncm-section-label">Show chronic addresses</div>
@@ -392,17 +380,6 @@
         </div>
       </div>
 
-      <div class="ncm-section">
-        <div class="ncm-section-label">Color scale</div>
-        <div class="ncm-segctl" id="ncm-scale-ctl">
-          <button data-scale="linear">Linear</button>
-          <button data-scale="log" class="is-active">Log</button>
-        </div>
-        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
-          <strong style="color:var(--ncm-black);">Linear:</strong> color is proportional to count. Best for spotting the very loudest places.
-          <strong style="color:var(--ncm-black);">Log:</strong> compresses the high end so quieter neighborhoods are still visible. Better for seeing the city overall.
-        </div>
-      </div>
 
       <div class="ncm-legend">
         <div class="ncm-legend-title">Complaints per hex (~1 sq km)</div>
@@ -448,7 +425,6 @@
     period: 'combined',
     subtype: 'all',
     bucket: 'all',         // 'all' or 0..3
-    view: 'heat',          // heat | hex
     chronicOn: true,
     scale: 'log',
     threshold: 50,
@@ -458,7 +434,6 @@
     meta: null,
     map: null,
     hexLayer: null,
-    heatLayer: null,
     chronicLayer: null,
     saturdayLayer: null,
   };
@@ -592,57 +567,24 @@
     return loc.subs[subName] || 0;
   }
 
-  function rebuildHeatLayer() {
-    if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
-    const data = STATE.hexData[STATE.period];
-    if (!data) return;
-    const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
-    const buckets = selectedBuckets();
-
-    // Use hex centroids weighted by count. Transform weights for log scale so
-    // residential noise doesn't blow out everything else.
-    const points = [];
-    for (const h of data.hexes) {
-      const v = getHexValue(h, subIdx, buckets);
-      if (v <= 0) continue;
-      const [lat, lng] = h3.cellToLatLng(h[0]);
-      points.push([lat, lng, v]);
-    }
-    if (!points.length) return;
-
-    // Anchor the heat scale to the period's all-hours all-types baseline so
-    // a bucket filter (e.g., late night) shows a visibly paler map when there
-    // are fewer complaints. Heat intensity is always LINEAR against the anchor
-    // — log compression in this layer was masking the bucket differences,
-    // making morning, afternoon, evening, and late night all look like the
-    // same red cloud. The log/linear toggle only governs the grid view.
-    const cap = getPeriodAnchor(STATE.scale);
-    const weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, v / cap)]);
-    const maxW = 1;
-
-    STATE.heatLayer = L.heatLayer(weighted, {
-      radius: 38,
-      blur: 32,
-      max: maxW,
-      maxZoom: 13,
-      minOpacity: 0.22,
-      gradient: {
-        0.0: '#fff7d6',
-        0.25: '#ffe08a',
-        0.45: '#ffb46b',
-        0.65: '#ff7c53',
-        0.82: '#ed5236',
-        1.0:  '#b51e26',
-      },
-    });
-    if (STATE.view === 'heat') STATE.heatLayer.addTo(STATE.map);
-
-    // legend labels for heat view
-    if (STATE.view === 'heat') {
-      const labels = $('ncm-legend-labels');
-      const breaks = makeLegendThresholds(STATE.scale);
-      labels.innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
-    }
+  // Compute per-hex weights for the grid using percentile rank * filter share.
+  // Percentile rank guarantees internal differentiation across NYC's 1,100
+  // hexes (otherwise every hex is in the same red zone, since virtually every
+  // NYC hex has thousands of complaints over the period). Filter share scales
+  // intensity so morning, afternoon, evening, and late night look visibly
+  // different. Returns { weights: number[], intensity, share }.
+  function computeHexWeights(data, subIdx, buckets) {
+    const values = data.hexes.map(h => getHexValue(h, subIdx, buckets));
+    const positive = values.filter(v => v > 0).slice().sort((a, b) => a - b);
+    const denom = Math.max(1, positive.length - 1);
+    const rank = new Map();
+    positive.forEach((v, i) => { if (!rank.has(v)) rank.set(v, i / denom); });
+    const periodTotal = data.hexes.reduce((s, h) => s + h[1], 0);
+    const filteredTotal = values.reduce((s, v) => s + v, 0);
+    const share = periodTotal > 0 ? Math.min(1, filteredTotal / periodTotal) : 1;
+    const intensity = Math.pow(share, 0.55);
+    const weights = values.map(v => v > 0 ? rank.get(v) * intensity : 0);
+    return { values, weights, intensity, share };
   }
 
   function rebuildHexLayer() {
@@ -651,8 +593,7 @@
     if (!data) return;
     const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
     const buckets = selectedBuckets();
-    const values = data.hexes.map(h => getHexValue(h, subIdx, buckets));
-    const colorOf = makeColorFn(STATE.scale);
+    const { values, weights, intensity, share } = computeHexWeights(data, subIdx, buckets);
 
     const layer = L.layerGroup();
     let total = 0;
@@ -660,15 +601,18 @@
       const v = values[i];
       if (v <= 0) continue;
       total += v;
-      const color = colorOf(v);
-      if (!color) continue;
+      const w = weights[i];
+      // Map weight 0–1 to the heat gradient
+      const color = HEAT[Math.min(HEAT.length - 1, Math.floor(w * HEAT.length))];
+      // Faint hexes fade out so the basemap shows through
+      const fillOpacity = 0.32 + 0.55 * w;
       const boundary = h3.cellToBoundary(data.hexes[i][0]);
       const poly = L.polygon(boundary, {
         fillColor: color,
-        fillOpacity: 0.78,
+        fillOpacity: fillOpacity,
         color: '#050507',
         weight: 0.4,
-        opacity: 0.45,
+        opacity: 0.18 + 0.4 * w,
       });
       // Sum subtype totals across selected buckets for the popup
       const subTotals = data.subtypes.map((_, si) => {
@@ -691,13 +635,15 @@
       layer.addLayer(poly);
     }
     STATE.hexLayer = layer;
-    if (STATE.view === 'hex') layer.addTo(STATE.map);
+    if (STATE.mode === 'full') layer.addTo(STATE.map);
 
-    if (STATE.view === 'hex') {
-      const breaks = makeLegendThresholds(STATE.scale);
-      const labels = $('ncm-legend-labels');
-      labels.innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
+    // Legend reflects percentile-rank scaling, not absolute counts
+    const labels = $('ncm-legend-labels');
+    if (labels) {
+      labels.innerHTML = ['Lowest','25th','50th','75th','Highest'].map(s => `<span>${s}</span>`).join('');
     }
+    const lt = document.querySelector('.ncm-legend-title');
+    if (lt) lt.textContent = `Where complaints concentrate · ${share < 0.99 ? `${Math.round(share*100)}% of all complaints in this filter` : 'all complaints'}`;
     return total;
   }
 
@@ -963,26 +909,11 @@
         rerender();
       });
     });
-    document.querySelectorAll('#ncm-view-ctl button').forEach(b => {
-      b.addEventListener('click', () => {
-        document.querySelectorAll('#ncm-view-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
-        STATE.view = b.dataset.view;
-        applyVisibility();
-      });
-    });
     document.querySelectorAll('#ncm-chronic-ctl button').forEach(b => {
       b.addEventListener('click', () => {
         document.querySelectorAll('#ncm-chronic-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
         STATE.chronicOn = b.dataset.chronic === 'on';
         applyVisibility();
-      });
-    });
-    document.querySelectorAll('#ncm-scale-ctl button').forEach(b => {
-      b.addEventListener('click', () => {
-        document.querySelectorAll('#ncm-scale-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
-        STATE.scale = b.dataset.scale;
-        rebuildHeatLayer();
-        rebuildHexLayer();
       });
     });
     sel.addEventListener('change', () => {
@@ -1095,7 +1026,7 @@
   function applyMode() {
     // Show/hide controls that don't make sense in Saturday-night mode
     const hideFullOnly = STATE.mode === 'saturday';
-    const fullOnlySelectors = ['#ncm-period-ctl', '#ncm-view-ctl', '#ncm-threshold-section', '#ncm-chronic-ctl', '#ncm-scale-ctl'];
+    const fullOnlySelectors = ['#ncm-period-ctl', '#ncm-threshold-section', '#ncm-chronic-ctl'];
     fullOnlySelectors.forEach(sel => {
       const el = document.querySelector(sel);
       if (!el) return;
@@ -1113,8 +1044,6 @@
 
   function rerender() {
     if (STATE.mode === 'saturday') {
-      // Hide full-window layers
-      if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
       if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
       if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
       rebuildSaturdayLayer();
@@ -1122,26 +1051,16 @@
       return;
     }
     if (STATE.saturdayLayer) STATE.map.removeLayer(STATE.saturdayLayer);
-    rebuildHeatLayer();
     rebuildHexLayer();
     rebuildChronicLayer();
     updateStats();
   }
 
   function applyVisibility() {
-    if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
     if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
     if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
-    if (STATE.view === 'heat' && STATE.heatLayer) STATE.heatLayer.addTo(STATE.map);
-    if (STATE.view === 'hex' && STATE.hexLayer) STATE.hexLayer.addTo(STATE.map);
+    if (STATE.mode === 'full' && STATE.hexLayer) STATE.hexLayer.addTo(STATE.map);
     if (STATE.chronicOn && STATE.chronicLayer) STATE.chronicLayer.addTo(STATE.map);
-
-    // Refresh legend labels for current view
-    const data = STATE.hexData[STATE.period];
-    if (data && (STATE.view === 'heat' || STATE.view === 'hex')) {
-      const breaks = makeLegendThresholds(STATE.scale);
-      $('ncm-legend-labels').innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
-    }
   }
 
   init().catch(err => {
