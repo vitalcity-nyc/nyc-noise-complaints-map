@@ -69,7 +69,10 @@
   z-index: 1000;
   overflow-y: auto;
   box-shadow: 4px 4px 0 var(--ncm-chartreuse);
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;         /* IE/old Edge */
 }
+.ncm-panel::-webkit-scrollbar { width: 0; height: 0; display: none; }  /* Chrome/Safari */
 
 .ncm-panel-inner { padding: 20px 22px 22px; }
 
