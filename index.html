@@ -105,6 +105,25 @@
   margin-bottom: 18px;
 }
 
+.ncm-mode {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--ncm-black);
+  border: 1px solid var(--ncm-black);
+  margin-bottom: 18px;
+}
+.ncm-mode-btn {
+  background: var(--ncm-white);
+  border: 0;
+  padding: 11px 12px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--ncm-font-sans);
+}
+.ncm-mode-btn:hover:not(.is-active) { background: var(--ncm-paper); }
+.ncm-mode-btn.is-active { background: var(--ncm-black); color: var(--ncm-white); }
+.ncm-mode-btn .ncm-mode-title { display: block; font-weight: 700; font-size: 12.5px; letter-spacing: 0.01em; }
+.ncm-mode-btn .ncm-mode-sub { display: block; font-size: 10.5px; opacity: 0.7; margin-top: 2px; }
+
 .ncm-rule {
   height: 1px; background: var(--ncm-black); border: 0;
   margin: 14px 0 14px;
@@ -285,6 +304,17 @@
       <h1 class="ncm-title">Where New York calls 311 about noise</h1>
       <p class="ncm-deck">Every 311 noise complaint in 2025 and year-to-date 2026, mapped citywide. Filter by type and surface chronic addresses.</p>
 
+      <div class="ncm-mode" id="ncm-mode">
+        <button class="ncm-mode-btn is-active" data-mode="full">
+          <span class="ncm-mode-title">Full window</span>
+          <span class="ncm-mode-sub">2025 + 2026 YTD</span>
+        </button>
+        <button class="ncm-mode-btn" data-mode="saturday">
+          <span class="ncm-mode-title">Last Saturday night</span>
+          <span class="ncm-mode-sub" id="ncm-saturday-label">—</span>
+        </button>
+      </div>
+
       <div class="ncm-stats">
         <div class="ncm-stat">
           <div class="ncm-stat-label">Total complaints</div>
@@ -315,6 +345,20 @@
       </div>
 
       <div class="ncm-section">
+        <div class="ncm-section-label">Time of day <span style="font-weight:400;color:var(--ncm-charcoal);text-transform:none;letter-spacing:0;">· local time</span></div>
+        <div class="ncm-segctl" id="ncm-bucket-ctl">
+          <button data-bucket="all" class="is-active">All</button>
+          <button data-bucket="0">Morning</button>
+          <button data-bucket="1">Afternoon</button>
+          <button data-bucket="2">Evening</button>
+          <button data-bucket="3">Late night</button>
+        </div>
+        <div style="font-size:10px;color:var(--ncm-charcoal);line-height:1.5;margin-top:6px;">
+          Morning 6 a.m.–noon · Afternoon noon–6 p.m. · Evening 6 p.m.–midnight · Late night midnight–6 a.m.
+        </div>
+      </div>
+
+      <div class="ncm-section">
         <div class="ncm-section-label">Density view</div>
         <div class="ncm-segctl" id="ncm-view-ctl">
           <button data-view="heat" class="is-active">Heatmap</button>
@@ -341,6 +385,9 @@
           <button data-threshold="50" class="is-active">50+</button>
           <button data-threshold="100">100+</button>
           <button data-threshold="200">200+</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
+          Filters the dark chronic-address dots only. The heatmap and grid show every complaint regardless of threshold.
         </div>
       </div>
 
@@ -396,20 +443,28 @@
   const $ = (id) => document.getElementById(id);
 
   const STATE = {
+    mode: 'full',          // full | saturday
     period: 'combined',
     subtype: 'all',
-    view: 'heat',          // heat | hex | off
+    bucket: 'all',         // 'all' or 0..3
+    view: 'heat',          // heat | hex
     chronicOn: true,
     scale: 'log',
     threshold: 50,
     hexData: { '2025': null, '2026ytd': null, combined: null },
     chronicData: { '2025': null, '2026ytd': null, combined: null },
+    saturdayData: null,
     meta: null,
     map: null,
     hexLayer: null,
     heatLayer: null,
     chronicLayer: null,
+    saturdayLayer: null,
   };
+
+  function selectedBuckets() {
+    return STATE.bucket === 'all' ? [0, 1, 2, 3] : [parseInt(STATE.bucket, 10)];
+  }
 
   // ---------- Data loading ----------
   async function loadJSON(path) {
@@ -419,7 +474,7 @@
   }
 
   async function loadAll() {
-    const [meta, h25, h26, hC, c25, c26, cC] = await Promise.all([
+    const [meta, h25, h26, hC, c25, c26, cC, sat] = await Promise.all([
       loadJSON('data/meta.json'),
       loadJSON('data/hex_2025.json'),
       loadJSON('data/hex_2026ytd.json'),
@@ -427,6 +482,7 @@
       loadJSON('data/chronic_2025.json'),
       loadJSON('data/chronic_2026ytd.json'),
       loadJSON('data/chronic_combined.json'),
+      loadJSON('data/saturday_night.json').catch(() => null),
     ]);
     STATE.meta = meta;
     STATE.hexData['2025'] = h25;
@@ -435,6 +491,7 @@
     STATE.chronicData['2025'] = c25;
     STATE.chronicData['2026ytd'] = c26;
     STATE.chronicData['combined'] = cC;
+    STATE.saturdayData = sat;
   }
 
   // ---------- Color scaling ----------
@@ -487,10 +544,40 @@
   }
 
   // ---------- Building layers ----------
-  function getHexValue(hexEntry, subIdx) {
-    // hexEntry = [hexId, total, [counts]]
-    if (subIdx === -1) return hexEntry[1];
-    return hexEntry[2][subIdx] || 0;
+  // hexEntry shape: [hexId, total, [bucket0_subs, bucket1_subs, bucket2_subs, bucket3_subs]]
+  function getHexValue(hexEntry, subIdx, buckets) {
+    const grid = hexEntry[2];
+    let sum = 0;
+    for (const b of buckets) {
+      const row = grid[b];
+      if (!row) continue;
+      if (subIdx === -1) {
+        for (let i = 0; i < row.length; i++) sum += row[i];
+      } else {
+        sum += row[subIdx] || 0;
+      }
+    }
+    return sum;
+  }
+
+  function getChronicValue(loc, subIdx, buckets) {
+    // Prefer bucketed counts; fall back to legacy `subs` if `buc` missing.
+    if (loc.buc) {
+      let sum = 0;
+      for (const b of buckets) {
+        const row = loc.buc[b];
+        if (!row) continue;
+        if (subIdx === -1) {
+          for (let i = 0; i < row.length; i++) sum += row[i];
+        } else {
+          sum += row[subIdx] || 0;
+        }
+      }
+      return sum;
+    }
+    if (subIdx === -1) return loc.n;
+    const subName = STATE.meta.subtypes[subIdx];
+    return loc.subs[subName] || 0;
   }
 
   function rebuildHeatLayer() {
@@ -498,12 +585,13 @@
     const data = STATE.hexData[STATE.period];
     if (!data) return;
     const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+    const buckets = selectedBuckets();
 
     // Use hex centroids weighted by count. Transform weights for log scale so
     // residential noise doesn't blow out everything else.
     const points = [];
     for (const h of data.hexes) {
-      const v = getHexValue(h, subIdx);
+      const v = getHexValue(h, subIdx, buckets);
       if (v <= 0) continue;
       const [lat, lng] = h3.cellToLatLng(h[0]);
       points.push([lat, lng, v]);
@@ -555,7 +643,8 @@
     const data = STATE.hexData[STATE.period];
     if (!data) return;
     const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
-    const values = data.hexes.map(h => getHexValue(h, subIdx));
+    const buckets = selectedBuckets();
+    const values = data.hexes.map(h => getHexValue(h, subIdx, buckets));
     const colorOf = makeColorFn(values, STATE.scale);
 
     const layer = L.layerGroup();
@@ -574,12 +663,16 @@
         weight: 0.4,
         opacity: 0.45,
       });
-      const top3 = data.hexes[i][2]
+      // Sum subtype totals across selected buckets for the popup
+      const subTotals = data.subtypes.map((_, si) => {
+        let s = 0; for (const b of buckets) s += (data.hexes[i][2][b] || [])[si] || 0; return s;
+      });
+      const top3 = subTotals
         .map((n, idx) => [data.subtypes[idx], n])
         .filter(([, n]) => n > 0)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3);
-      const tot = data.hexes[i][1];
+      const tot = v;
       poly.bindPopup(`
         <div>
           <div class="ncm-pop-kicker">Hex cell · ${periodLabel(STATE.period)}</div>
@@ -606,35 +699,30 @@
     const data = STATE.chronicData[STATE.period];
     if (!data) return 0;
     const layer = L.layerGroup();
+    const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+    const buckets = selectedBuckets();
     const items = [];
     for (const loc of data.locations) {
-      const subN = STATE.subtype === 'all' ? loc.n : (loc.subs[STATE.subtype] || 0);
+      const subN = getChronicValue(loc, subIdx, buckets);
       if (subN < STATE.threshold) continue;
       items.push({ loc, subN });
     }
     items.sort((a, b) => b.subN - a.subN);
     STATE.chronicItems = items;
 
-    // Progressive disclosure: at citywide zoom we only render the top N worst,
-    // then reveal more as the user zooms in. Keeps the overview legible without
-    // throwing away data — every chronic location is reachable by zooming.
+    // Render all dots above threshold so the threshold control has a visible
+    // citywide effect. With canvas rendering even ~10K points stays smooth.
     const zoom = STATE.map ? STATE.map.getZoom() : 11;
-    let renderCap;
-    if (zoom <= 11) renderCap = 250;
-    else if (zoom <= 12) renderCap = 600;
-    else if (zoom <= 13) renderCap = 1500;
-    else renderCap = items.length;
-    const toRender = items.slice(0, renderCap);
+    const sizeMult = zoom <= 10 ? 0.7 : zoom <= 11 ? 0.85 : zoom <= 13 ? 1.0 : 1.25;
+    // At very low zoom, shrink dots harder so dense clusters don't blob
+    const opacityMult = items.length > 4000 ? 0.55 : items.length > 1500 ? 0.65 : 0.78;
 
-    // Zoom-dependent radius
-    const sizeMult = zoom <= 11 ? 0.85 : zoom <= 13 ? 1.0 : 1.25;
-
-    for (const { loc, subN } of toRender) {
-      const radius = Math.max(1.8, Math.min(7, (1.6 + Math.sqrt(subN) * 0.13) * sizeMult));
+    for (const { loc, subN } of items) {
+      const radius = Math.max(1.4, Math.min(7, (1.4 + Math.sqrt(subN) * 0.12) * sizeMult));
       const m = L.circleMarker([loc.lat, loc.lng], {
         radius,
         fillColor: '#0a0a0a',
-        fillOpacity: 0.72,
+        fillOpacity: opacityMult,
         stroke: false,
       });
 
@@ -715,27 +803,63 @@
   }
 
   // ---------- Stats / chrome ----------
+  function bucketLabel() {
+    const m = { '0': 'morning', '1': 'afternoon', '2': 'evening', '3': 'late night' };
+    return STATE.bucket === 'all' ? 'all hours' : m[STATE.bucket];
+  }
+
   function updateStats() {
+    if (STATE.mode === 'saturday') {
+      const data = STATE.saturdayData;
+      const total = data ? data.points.length : 0;
+      $('ncm-stat-total').textContent = total.toLocaleString();
+      $('ncm-stat-total-sub').textContent = data ? data.window_label : '—';
+      const rendered = STATE._satRenderedCount || 0;
+      $('ncm-stat-chronic').textContent = rendered.toLocaleString();
+      $('ncm-stat-chronic-sub').textContent = `dots shown · ${STATE.subtype === 'all' ? 'all types' : STATE.subtype.toLowerCase()} · ${bucketLabel()}`;
+      renderSaturdayLegend();
+      return;
+    }
     const data = STATE.hexData[STATE.period];
     let total = 0;
+    const buckets = selectedBuckets();
     if (data) {
       const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
-      for (const h of data.hexes) total += getHexValue(h, subIdx);
+      for (const h of data.hexes) total += getHexValue(h, subIdx, buckets);
     }
     $('ncm-stat-total').textContent = total.toLocaleString();
-    $('ncm-stat-total-sub').textContent = `${STATE.subtype === 'all' ? 'all noise types' : STATE.subtype.toLowerCase()} · ${periodLabel(STATE.period)}`;
+    $('ncm-stat-total-sub').textContent = `${STATE.subtype === 'all' ? 'all types' : STATE.subtype.toLowerCase()} · ${periodLabel(STATE.period)} · ${bucketLabel()}`;
 
-    // chronic count = number plotted
     const cd = STATE.chronicData[STATE.period];
     let chronicCount = 0;
     if (cd) {
+      const subIdx = STATE.subtype === 'all' ? -1 : cd.subtypes.indexOf(STATE.subtype);
       for (const loc of cd.locations) {
-        const subN = STATE.subtype === 'all' ? loc.n : (loc.subs[STATE.subtype] || 0);
+        const subN = getChronicValue(loc, subIdx, buckets);
         if (subN >= STATE.threshold) chronicCount++;
       }
     }
     $('ncm-stat-chronic').textContent = chronicCount.toLocaleString();
     $('ncm-stat-chronic-sub').textContent = `${STATE.threshold}+ complaints`;
+  }
+
+  function renderSaturdayLegend() {
+    const data = STATE.saturdayData;
+    if (!data) return;
+    const counts = new Array(data.subtypes.length).fill(0);
+    for (const p of data.points) counts[p[2]]++;
+    const items = data.subtypes
+      .map((s, i) => ({ s, i, n: counts[i] }))
+      .filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n);
+    const el = $('ncm-toplist');
+    el.innerHTML = items.map(x => `
+      <div class="ncm-toplist-item" style="cursor:default;">
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${subColor(x.i)};"></span>
+        <span class="ncm-toplist-addr">${x.s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span>
+        <span class="ncm-toplist-count" style="color:var(--ncm-black);">${x.n.toLocaleString()}</span>
+      </div>
+    `).join('');
   }
 
   // ---------- Init ----------
@@ -809,6 +933,31 @@
       STATE.subtype = sel.value;
       rerender();
     });
+
+    document.querySelectorAll('#ncm-bucket-ctl button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-bucket-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.bucket = b.dataset.bucket;
+        rerender();
+      });
+    });
+
+    document.querySelectorAll('#ncm-mode .ncm-mode-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#ncm-mode .ncm-mode-btn').forEach(x => x.classList.toggle('is-active', x === b));
+        STATE.mode = b.dataset.mode;
+        applyMode();
+      });
+    });
+
+    // Populate Saturday-night label
+    if (STATE.saturdayData && STATE.saturdayData.window_label) {
+      $('ncm-saturday-label').textContent = STATE.saturdayData.window_label;
+    } else {
+      const btn = document.querySelector('.ncm-mode-btn[data-mode="saturday"]');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed'; }
+      $('ncm-saturday-label').textContent = 'unavailable';
+    }
     document.querySelectorAll('#ncm-threshold-ctl button').forEach(b => {
       b.addEventListener('click', () => {
         document.querySelectorAll('#ncm-threshold-ctl button').forEach(x => x.classList.toggle('is-active', x === b));
@@ -824,7 +973,99 @@
     $('ncm-loading').classList.add('is-hidden');
   }
 
+  // 8 distinct, accessible, on-brand colors for the noise subtypes (Saturday-night dot view)
+  const SUB_COLORS = [
+    '#e7466d',  // residential — magenta
+    '#217ebe',  // street/sidewalk — cerulean
+    '#ff7c53',  // commercial — orange
+    '#9b9fbc',  // (general) — periwinkle
+    '#394882',  // vehicle — indigo
+    '#57aa4a',  // helicopter — green
+    '#dde44c',  // park — chartreuse
+    '#cea9be',  // house of worship — rose
+  ];
+
+  function subColor(idx) {
+    return SUB_COLORS[idx % SUB_COLORS.length];
+  }
+
+  function bucketForHour(h) {
+    if (h >= 6 && h < 12) return 0;
+    if (h >= 12 && h < 18) return 1;
+    if (h >= 18 && h < 24) return 2;
+    return 3;
+  }
+
+  function rebuildSaturdayLayer() {
+    if (STATE.saturdayLayer) STATE.map.removeLayer(STATE.saturdayLayer);
+    const data = STATE.saturdayData;
+    if (!data) return;
+    const layer = L.layerGroup();
+    const subtypes = data.subtypes;
+    const subIdx = STATE.subtype === 'all' ? -1 : subtypes.indexOf(STATE.subtype);
+    const buckets = selectedBuckets();
+    let renderedCount = 0;
+    const subBuckets = data.points.reduce((acc, p) => { acc[p[2]] = (acc[p[2]] || 0) + 1; return acc; }, {});
+    for (const p of data.points) {
+      // p = [lat, lng, subtypeIdx, hour_local, address, descriptor]
+      const [lat, lng, si, hour, addr, desc] = p;
+      if (subIdx !== -1 && si !== subIdx) continue;
+      if (STATE.bucket !== 'all' && bucketForHour(hour) !== parseInt(STATE.bucket, 10)) continue;
+      renderedCount++;
+      const m = L.circleMarker([lat, lng], {
+        radius: 4.2,
+        fillColor: subColor(si),
+        fillOpacity: 0.78,
+        color: '#0a0a0a',
+        weight: 0.5,
+        opacity: 0.5,
+      });
+      const subName = subtypes[si] || '';
+      const hourFmt = hour < 0 ? '' : (hour === 0 ? '12 a.m.' : hour < 12 ? `${hour} a.m.` : hour === 12 ? '12 p.m.' : `${hour - 12} p.m.`);
+      m.bindPopup(`
+        <div>
+          <div class="ncm-pop-kicker">${subName.replace(/^Noise[\\s\\-]*/, '') || 'Noise'} · ${hourFmt}</div>
+          <div class="ncm-pop-addr">${(addr || 'Unmarked location').replace(/  +/g,' ')}</div>
+          ${desc ? `<div class="ncm-pop-meta">${desc}</div>` : ''}
+        </div>
+      `);
+      layer.addLayer(m);
+    }
+    STATE.saturdayLayer = layer;
+    if (STATE.mode === 'saturday') layer.addTo(STATE.map);
+    STATE._satRenderedCount = renderedCount;
+  }
+
+  function applyMode() {
+    // Show/hide controls that don't make sense in Saturday-night mode
+    const hideFullOnly = STATE.mode === 'saturday';
+    const fullOnlySelectors = ['#ncm-period-ctl', '#ncm-view-ctl', '#ncm-threshold-section', '#ncm-chronic-ctl', '#ncm-scale-ctl'];
+    fullOnlySelectors.forEach(sel => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      const section = el.closest('.ncm-section') || el;
+      section.style.display = hideFullOnly ? 'none' : '';
+    });
+    // Legend swaps too
+    const legend = document.querySelector('.ncm-legend');
+    if (legend) legend.style.display = hideFullOnly ? 'none' : '';
+    // Top list label changes
+    const tlt = document.querySelector('.ncm-toplist-title');
+    if (tlt) tlt.textContent = hideFullOnly ? 'Saturday-night legend' : 'Top chronic addresses';
+    rerender();
+  }
+
   function rerender() {
+    if (STATE.mode === 'saturday') {
+      // Hide full-window layers
+      if (STATE.heatLayer) STATE.map.removeLayer(STATE.heatLayer);
+      if (STATE.hexLayer) STATE.map.removeLayer(STATE.hexLayer);
+      if (STATE.chronicLayer) STATE.map.removeLayer(STATE.chronicLayer);
+      rebuildSaturdayLayer();
+      updateStats();
+      return;
+    }
+    if (STATE.saturdayLayer) STATE.map.removeLayer(STATE.saturdayLayer);
     rebuildHeatLayer();
     rebuildHexLayer();
     rebuildChronicLayer();

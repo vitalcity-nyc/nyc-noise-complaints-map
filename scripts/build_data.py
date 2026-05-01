@@ -25,8 +25,13 @@ import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# Eastern time = UTC-5 standard, UTC-4 daylight. NYC observes DST. We pick a
+# fixed UTC offset for the Saturday-night window — close enough; the exact
+# DST boundary day will be off by an hour but the editorial point holds.
+ET_OFFSET_HOURS = 4  # treat ET ~ UTC-4 (EDT)
 
 try:
     import h3
@@ -130,6 +135,27 @@ def loc_key(lat: float, lng: float) -> tuple[float, float]:
     return (round(lat * LOC_ROUND) / LOC_ROUND, round(lng * LOC_ROUND) / LOC_ROUND)
 
 
+# Time-of-day buckets in local Eastern hours
+# 0 = Morning (6–12), 1 = Afternoon (12–18), 2 = Evening (18–24), 3 = Late night (0–6)
+NUM_BUCKETS = 4
+
+def bucket_for(created_utc: str) -> int | None:
+    if not created_utc or len(created_utc) < 16:
+        return None
+    try:
+        t = datetime.strptime(created_utc[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    hour = (t - timedelta(hours=ET_OFFSET_HOURS)).hour
+    if 6 <= hour < 12:
+        return 0
+    if 12 <= hour < 18:
+        return 1
+    if 18 <= hour < 24:
+        return 2
+    return 3
+
+
 def title_case(s: str) -> str:
     if not s:
         return ""
@@ -191,14 +217,21 @@ def main() -> int:
     for s in subtypes:
         sys.stderr.write(f"  {subtype_counts[s]:>9,}  {s}\n")
 
-    # Aggregate hexes per period
-    # hex_data[period][hex_id] = [total, [counts_per_subtype]]
+    # Aggregate hexes per period.
+    # New shape: hex_data[period][hex_id] = list of length NUM_BUCKETS, each a
+    # list of length len(subtypes) of counts. Total/per-subtype counts can be
+    # summed at render time. This adds a fourth dimension (time-of-day) at
+    # ~4x the previous storage but the absolute size stays small.
     periods = ["2025", "2026ytd", "combined"]
     hex_data: dict[str, dict[str, list]] = {p: {} for p in periods}
     chronic_data: dict[str, dict[tuple, dict]] = {p: {} for p in periods}
 
+    def new_hex_entry():
+        return [[0] * len(subtypes) for _ in range(NUM_BUCKETS)]
+
     skipped_geo = 0
     skipped_artifact = 0
+    skipped_no_bucket = 0
     for r in rows:
         try:
             lat = float(r["latitude"]); lng = float(r["longitude"])
@@ -216,15 +249,17 @@ def main() -> int:
         si = sub_idx.get(sub)
         if si is None:
             continue
+        bi = bucket_for(r.get("created_date", ""))
+        if bi is None:
+            skipped_no_bucket += 1; continue
 
         hex_id = h3.latlng_to_cell(lat, lng, HEX_RES)
         for p in (per, "combined"):
             entry = hex_data[p].get(hex_id)
             if entry is None:
-                entry = [0, [0] * len(subtypes)]
+                entry = new_hex_entry()
                 hex_data[p][hex_id] = entry
-            entry[0] += 1
-            entry[1][si] += 1
+            entry[bi][si] += 1
 
         # Chronic location aggregation
         key = loc_key(lat, lng)
@@ -236,7 +271,7 @@ def main() -> int:
                     "addrs": defaultdict(int),
                     "boros": defaultdict(int),
                     "cbs": defaultdict(int),
-                    "subtypes": defaultdict(int),
+                    "buc": [[0] * len(subtypes) for _ in range(NUM_BUCKETS)],
                     "descriptors": defaultdict(int),
                 }
                 chronic_data[p][key] = loc
@@ -247,7 +282,7 @@ def main() -> int:
                 loc["boros"][r["borough"]] += 1
             if r.get("community_board"):
                 loc["cbs"][r["community_board"]] += 1
-            loc["subtypes"][sub] += 1
+            loc["buc"][bi][si] += 1
             d = r.get("descriptor") or ""
             if d:
                 loc["descriptors"][d] += 1
@@ -258,14 +293,17 @@ def main() -> int:
     out_dir = Path(args.out); out_dir.mkdir(parents=True, exist_ok=True)
 
     # Write hex files
+    bucket_labels = ["morning", "afternoon", "evening", "late_night"]
     for p in periods:
         hexes = []
-        for hex_id, (total, by_sub) in hex_data[p].items():
-            hexes.append([hex_id, total, by_sub])
+        for hex_id, buckets in hex_data[p].items():
+            total = sum(sum(row) for row in buckets)
+            hexes.append([hex_id, total, buckets])
         hexes.sort(key=lambda h: -h[1])
         payload = {
             "period": p,
             "subtypes": subtypes,
+            "buckets": bucket_labels,
             "hexes": hexes,
         }
         path = out_dir / f"hex_{p}.json"
@@ -283,6 +321,12 @@ def main() -> int:
             top_boro = max(loc["boros"].items(), key=lambda x: x[1])[0] if loc["boros"] else ""
             top_cb = max(loc["cbs"].items(), key=lambda x: x[1])[0] if loc["cbs"] else ""
             top_desc = max(loc["descriptors"].items(), key=lambda x: x[1])[0] if loc["descriptors"] else ""
+            # subtype_totals derived from buckets so the new and old fields stay consistent
+            sub_totals = [0] * len(subtypes)
+            for row in loc["buc"]:
+                for i, c in enumerate(row):
+                    sub_totals[i] += c
+            subs = {subtypes[i]: sub_totals[i] for i in range(len(subtypes)) if sub_totals[i]}
             locs.append({
                 "lat": round(loc["lat_sum"] / n, 6),
                 "lng": round(loc["lng_sum"] / n, 6),
@@ -290,7 +334,8 @@ def main() -> int:
                 "addr": title_case(top_addr),
                 "boro": title_case(top_boro),
                 "cb": top_cb,
-                "subs": dict(loc["subtypes"]),
+                "subs": subs,
+                "buc": loc["buc"],  # [4 buckets][len(subtypes)]
                 "top_desc": top_desc,
             })
         locs.sort(key=lambda x: -x["n"])
@@ -298,11 +343,89 @@ def main() -> int:
             "period": p,
             "min_count": MIN_CHRONIC,
             "subtypes": subtypes,
+            "buckets": bucket_labels,
             "locations": locs,
         }
         path = out_dir / f"chronic_{p}.json"
         path.write_text(json.dumps(payload, separators=(",", ":")))
         sys.stderr.write(f"Wrote {path} ({len(locs):,} chronic locations, {path.stat().st_size/1024:.0f}KB)\n")
+
+    # ---- Last Saturday night ----
+    # Window: Saturday 6:00 PM ET through Sunday 6:00 AM ET (12-hour window).
+    # We anchor on UTC-now and walk back to the most recent past Saturday.
+    now_utc = datetime.now(timezone.utc)
+    days_back = (now_utc.weekday() - 5) % 7  # weekday(): Mon=0 .. Sat=5
+    if days_back == 0 and now_utc.hour < (18 + ET_OFFSET_HOURS) % 24:
+        # If it's Saturday before the window starts, use the prior Saturday
+        days_back = 7
+    last_sat_date = (now_utc - timedelta(days=days_back)).date()
+    sat_start_utc = datetime(last_sat_date.year, last_sat_date.month, last_sat_date.day,
+                             18 + ET_OFFSET_HOURS, 0, 0, tzinfo=timezone.utc)
+    sat_end_utc = sat_start_utc + timedelta(hours=12)
+    sat_start_str = sat_start_utc.strftime("%Y-%m-%dT%H:%M:%S")
+    sat_end_str = sat_end_utc.strftime("%Y-%m-%dT%H:%M:%S")
+    sys.stderr.write(f"\nFetching last Saturday-night window: {sat_start_str} → {sat_end_str} UTC\n")
+
+    sat_rows: list[dict] = []
+    sat_offset = 0
+    sat_select = "created_date,complaint_type,descriptor,latitude,longitude,incident_address,borough"
+    sat_where = (
+        f"complaint_type LIKE 'Noise%' "
+        f"AND created_date >= '{sat_start_str}' "
+        f"AND created_date < '{sat_end_str}' "
+        f"AND latitude IS NOT NULL"
+    )
+    while True:
+        qs = urllib.parse.urlencode({
+            "$select": sat_select, "$where": sat_where,
+            "$order": "created_date", "$limit": PAGE_SIZE, "$offset": sat_offset,
+        })
+        page = http_get_json(f"{API_BASE}?{qs}")
+        if not page:
+            break
+        sat_rows.extend(page)
+        if len(page) < PAGE_SIZE:
+            break
+        sat_offset += PAGE_SIZE
+
+    sat_points = []
+    for r in sat_rows:
+        try:
+            lat = float(r["latitude"]); lng = float(r["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (40.4 < lat < 41.0 and -74.3 < lng < -73.6):
+            continue
+        if loc_key(lat, lng) in ARTIFACT_BLOCKLIST:
+            continue
+        sub = r.get("complaint_type", "")
+        si = sub_idx.get(sub)
+        if si is None:
+            continue
+        # Compact format: [lat, lng, subtype_index, hour_local, address, descriptor]
+        created = r.get("created_date", "")
+        try:
+            t = datetime.strptime(created[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            hour_local = (t - timedelta(hours=ET_OFFSET_HOURS)).hour
+        except ValueError:
+            hour_local = -1
+        sat_points.append([
+            round(lat, 5), round(lng, 5), si, hour_local,
+            (r.get("incident_address") or "").title()[:80],
+            r.get("descriptor") or "",
+        ])
+    sys.stderr.write(f"Saturday-night fetched: {len(sat_rows):,}, points kept: {len(sat_points):,}\n")
+
+    saturday_payload = {
+        "subtypes": subtypes,
+        "date_local": last_sat_date.isoformat(),
+        "window_label": f"Sat 6:00 PM – Sun 6:00 AM, {last_sat_date.strftime('%b %-d, %Y')}",
+        "start_utc": sat_start_str,
+        "end_utc": sat_end_str,
+        "points": sat_points,
+    }
+    (out_dir / "saturday_night.json").write_text(json.dumps(saturday_payload, separators=(",", ":")))
+    sys.stderr.write(f"Wrote {out_dir/'saturday_night.json'} ({len(sat_points):,} points)\n")
 
     meta = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -314,6 +437,8 @@ def main() -> int:
         "subtype_counts": {s: subtype_counts[s] for s in subtypes},
         "min_chronic": MIN_CHRONIC,
         "hex_resolution": HEX_RES,
+        "saturday_date": last_sat_date.isoformat(),
+        "saturday_count": len(sat_points),
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     sys.stderr.write(f"Wrote {out_dir/'meta.json'}\n")
