@@ -364,9 +364,9 @@
           <button data-bucket="2">Evening</button>
           <button data-bucket="3">Late night</button>
         </div>
-        <div class="ncm-bucket-chart" id="ncm-bucket-chart" style="margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:end;height:54px;"></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
-          <div>6a–12p</div><div>12p–6p</div><div>6p–12a</div><div>12a–6a</div>
+        <div class="ncm-bucket-chart" id="ncm-bucket-chart" style="margin-top:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:end;height:54px;"></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
+          <div></div><div>6a–12p</div><div>12p–6p</div><div>6p–12a</div><div>12a–6a</div>
         </div>
       </div>
 
@@ -870,16 +870,19 @@
     }
     const max = Math.max(1, ...counts);
     const sel = STATE.bucket;
-    el.innerHTML = counts.map((c, i) => {
+    // First grid column (under the "All" button) is intentionally empty so the
+    // four bars line up beneath Morning / Afternoon / Evening / Late night.
+    const cells = ['<div></div>'].concat(counts.map((c, i) => {
       const h = Math.max(2, Math.round(54 * c / max));
       const isSel = sel === 'all' || sel === String(i);
       const fill = isSel ? '#050507' : '#dddddd';
       const lbl = c >= 1000 ? `${(c/1000).toFixed(c >= 10000 ? 0 : 1)}k` : c.toLocaleString();
-      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;" data-bucket="${i}">
+      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;padding:0 4px;" data-bucket="${i}">
         <div style="font-size:9.5px;font-weight:700;color:${isSel ? '#050507' : '#9a9a9a'};font-variant-numeric:tabular-nums;margin-bottom:2px;">${lbl}</div>
         <div style="width:100%;height:${h}px;background:${fill};"></div>
       </div>`;
-    }).join('');
+    }));
+    el.innerHTML = cells.join('');
     // Click bars to switch bucket
     el.querySelectorAll('[data-bucket]').forEach(node => {
       node.addEventListener('click', () => {
