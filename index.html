@@ -319,7 +319,10 @@
         <div class="ncm-segctl" id="ncm-view-ctl">
           <button data-view="heat" class="is-active">Heatmap</button>
           <button data-view="hex">Grid</button>
-          <button data-view="off">Off</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
+          <strong style="color:var(--ncm-black);">Heatmap:</strong> smooth kernel density — best for the overall pattern.
+          <strong style="color:var(--ncm-black);">Grid:</strong> hex cells (~1 sq km each) with click-for-counts.
         </div>
       </div>
 
@@ -342,10 +345,14 @@
       </div>
 
       <div class="ncm-section">
-        <div class="ncm-section-label">Heat color scale</div>
+        <div class="ncm-section-label">Color scale</div>
         <div class="ncm-segctl" id="ncm-scale-ctl">
           <button data-scale="linear">Linear</button>
           <button data-scale="log" class="is-active">Log</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--ncm-charcoal);line-height:1.45;margin-top:6px;">
+          <strong style="color:var(--ncm-black);">Linear:</strong> color is proportional to count. Best for spotting the very loudest places.
+          <strong style="color:var(--ncm-black);">Log:</strong> compresses the high end so quieter neighborhoods are still visible. Better for seeing the city overall.
         </div>
       </div>
 
@@ -433,43 +440,48 @@
   // ---------- Color scaling ----------
   const HEAT = ['#f4f1c0','#f0d674','#fb9e63','#fb693c','#ed5236','#d2232a'];
 
+  // p95 cap so a single freak hex doesn't normalize every other hex to pale yellow
+  function p95(arr) {
+    const sorted = arr.slice().sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length * 0.95)] || sorted[sorted.length - 1] || 1;
+  }
+
   function makeColorFn(values, scale) {
-    if (!values.length) return () => HEAT[0];
     const nonZero = values.filter(v => v > 0);
     if (!nonZero.length) return () => HEAT[0];
-    const max = Math.max(...nonZero);
+    const cap = p95(nonZero);
     if (scale === 'log') {
-      const lmax = Math.log(max + 1);
+      const lcap = Math.log(cap + 1);
       return (v) => {
         if (v <= 0) return null;
-        const t = Math.log(v + 1) / lmax;
+        const t = Math.min(1, Math.log(v + 1) / lcap);
         return HEAT[Math.min(HEAT.length - 1, Math.floor(t * HEAT.length))];
       };
     } else {
       return (v) => {
         if (v <= 0) return null;
-        const t = v / max;
+        const t = Math.min(1, v / cap);
         return HEAT[Math.min(HEAT.length - 1, Math.floor(t * HEAT.length))];
       };
     }
   }
 
   function makeLegendThresholds(values, scale) {
-    const max = values.length ? Math.max(...values) : 0;
-    if (max <= 0) return ['0','—'];
+    const nonZero = values.filter(v => v > 0);
+    if (!nonZero.length) return ['0','—'];
+    const cap = p95(nonZero);
     if (scale === 'log') {
-      // 5 evenly-spaced log breakpoints
-      const lmax = Math.log(max + 1);
+      const lcap = Math.log(cap + 1);
       const out = [];
       for (let i = 0; i < 6; i++) {
-        out.push(Math.round(Math.exp((i / 5) * lmax) - 1));
+        out.push(Math.round(Math.exp((i / 5) * lcap) - 1));
       }
+      out[out.length - 1] = `${out[out.length - 1].toLocaleString()}+`;
       return out;
     } else {
       const out = [];
-      for (let i = 0; i < 6; i++) {
-        out.push(Math.round((i / 5) * max));
-      }
+      for (let i = 0; i < 6; i++) out.push(Math.round((i / 5) * cap));
+      out[out.length - 1] = `${out[out.length - 1].toLocaleString()}+`;
       return out;
     }
   }

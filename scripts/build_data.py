@@ -43,6 +43,15 @@ MIN_CHRONIC = 10                        # write any location with >= 10; thresho
 LOC_ROUND = 2000                        # ~50m blocks (round lat/lng to 1/2000 deg)
 HERE = Path(__file__).resolve().parent.parent
 
+# Known 311 reporting artifacts to exclude. Each entry is a (lat_rounded, lng_rounded)
+# block at LOC_ROUND precision. These addresses produce complaint volumes that are
+# physically impossible (e.g., 8,000+/month at a single address), reflecting data-
+# quality issues (geocoding fallbacks, automated repeat callers, default-address
+# fill-ins) rather than real noise events. Documented in methodology.md.
+ARTIFACT_BLOCKLIST: set[tuple[float, float]] = {
+    (40.892, -73.86),  # 655 East 230 Street, Bronx — ~128k complaints / 16 months
+}
+
 
 def http_get_json(url: str, retries: int = 4) -> list:
     last_err = None
@@ -189,6 +198,7 @@ def main() -> int:
     chronic_data: dict[str, dict[tuple, dict]] = {p: {} for p in periods}
 
     skipped_geo = 0
+    skipped_artifact = 0
     for r in rows:
         try:
             lat = float(r["latitude"]); lng = float(r["longitude"])
@@ -196,6 +206,9 @@ def main() -> int:
             skipped_geo += 1; continue
         if not (40.4 < lat < 41.0 and -74.3 < lng < -73.6):
             skipped_geo += 1; continue
+        # Skip known reporting artifacts (see ARTIFACT_BLOCKLIST above)
+        if loc_key(lat, lng) in ARTIFACT_BLOCKLIST:
+            skipped_artifact += 1; continue
         per = period_for(r.get("created_date", ""))
         if per is None:
             continue
@@ -240,6 +253,7 @@ def main() -> int:
                 loc["descriptors"][d] += 1
 
     sys.stderr.write(f"Skipped (bad/out-of-bounds geo): {skipped_geo:,}\n")
+    sys.stderr.write(f"Skipped (artifact blocklist): {skipped_artifact:,}\n")
 
     out_dir = Path(args.out); out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -294,6 +308,8 @@ def main() -> int:
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "since": since, "until": until,
         "total_rows": len(rows),
+        "rows_excluded_artifact": skipped_artifact,
+        "rows_excluded_geo": skipped_geo,
         "subtypes": subtypes,
         "subtype_counts": {s: subtype_counts[s] for s in subtypes},
         "min_chronic": MIN_CHRONIC,
