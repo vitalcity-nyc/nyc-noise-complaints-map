@@ -353,8 +353,9 @@
           <button data-bucket="2">Evening</button>
           <button data-bucket="3">Late night</button>
         </div>
-        <div style="font-size:10px;color:var(--ncm-charcoal);line-height:1.5;margin-top:6px;">
-          Morning 6 a.m.–noon · Afternoon noon–6 p.m. · Evening 6 p.m.–midnight · Late night midnight–6 a.m.
+        <div class="ncm-bucket-chart" id="ncm-bucket-chart" style="margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:end;height:54px;"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
+          <div>6a–12p</div><div>12p–6p</div><div>6p–12a</div><div>12a–6a</div>
         </div>
       </div>
 
@@ -503,10 +504,24 @@
     return sorted[Math.floor(sorted.length * 0.95)] || sorted[sorted.length - 1] || 1;
   }
 
-  function makeColorFn(values, scale) {
-    const nonZero = values.filter(v => v > 0);
-    if (!nonZero.length) return () => HEAT[0];
-    const cap = p95(nonZero);
+  // Anchor the color scale to the period's all-hours all-types baseline so
+  // bucket filters and subtype filters show real intensity differences instead
+  // of each filtered view re-normalizing to itself (which made morning,
+  // afternoon, evening, and late night all look like the same red cloud).
+  function getPeriodAnchor(scale) {
+    const data = STATE.hexData[STATE.period];
+    if (!data) return 1;
+    if (!data._anchorCache) data._anchorCache = {};
+    if (data._anchorCache[scale] != null) return data._anchorCache[scale];
+    // h[1] is the all-hours all-types total for that hex
+    const totals = data.hexes.map(h => h[1]).filter(v => v > 0);
+    const cap = p95(totals);
+    data._anchorCache[scale] = cap;
+    return cap;
+  }
+
+  function makeColorFn(scale) {
+    const cap = getPeriodAnchor(scale);
     if (scale === 'log') {
       const lcap = Math.log(cap + 1);
       return (v) => {
@@ -523,16 +538,13 @@
     }
   }
 
-  function makeLegendThresholds(values, scale) {
-    const nonZero = values.filter(v => v > 0);
-    if (!nonZero.length) return ['0','—'];
-    const cap = p95(nonZero);
+  function makeLegendThresholds(scale) {
+    const cap = getPeriodAnchor(scale);
+    if (cap <= 0) return ['0','—'];
     if (scale === 'log') {
       const lcap = Math.log(cap + 1);
       const out = [];
-      for (let i = 0; i < 6; i++) {
-        out.push(Math.round(Math.exp((i / 5) * lcap) - 1));
-      }
+      for (let i = 0; i < 6; i++) out.push(Math.round(Math.exp((i / 5) * lcap) - 1));
       out[out.length - 1] = `${out[out.length - 1].toLocaleString()}+`;
       return out;
     } else {
@@ -598,19 +610,14 @@
     }
     if (!points.length) return;
 
-    // Cap the scale at the 95th percentile so a single outlier hex
-    // (helicopter complaints centroided at LGA, etc.) doesn't wash out the rest.
-    const sortedVals = points.map(p => p[2]).sort((a, b) => a - b);
-    const p95 = sortedVals[Math.floor(sortedVals.length * 0.95)] || sortedVals[sortedVals.length - 1] || 1;
-    const maxRaw = p95;
-
-    let weighted;
-    if (STATE.scale === 'log') {
-      const lmax = Math.log(maxRaw + 1);
-      weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, Math.log(v + 1) / lmax)]);
-    } else {
-      weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, v / maxRaw)]);
-    }
+    // Anchor the heat scale to the period's all-hours all-types baseline so
+    // a bucket filter (e.g., late night) shows a visibly paler map when there
+    // are fewer complaints. Heat intensity is always LINEAR against the anchor
+    // — log compression in this layer was masking the bucket differences,
+    // making morning, afternoon, evening, and late night all look like the
+    // same red cloud. The log/linear toggle only governs the grid view.
+    const cap = getPeriodAnchor(STATE.scale);
+    const weighted = points.map(([lat, lng, v]) => [lat, lng, Math.min(1, v / cap)]);
     const maxW = 1;
 
     STATE.heatLayer = L.heatLayer(weighted, {
@@ -633,8 +640,8 @@
     // legend labels for heat view
     if (STATE.view === 'heat') {
       const labels = $('ncm-legend-labels');
-      const breaks = makeLegendThresholds(points.map(p => p[2]), STATE.scale);
-      labels.innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+      const breaks = makeLegendThresholds(STATE.scale);
+      labels.innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
     }
   }
 
@@ -645,7 +652,7 @@
     const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
     const buckets = selectedBuckets();
     const values = data.hexes.map(h => getHexValue(h, subIdx, buckets));
-    const colorOf = makeColorFn(values, STATE.scale);
+    const colorOf = makeColorFn(STATE.scale);
 
     const layer = L.layerGroup();
     let total = 0;
@@ -687,9 +694,9 @@
     if (STATE.view === 'hex') layer.addTo(STATE.map);
 
     if (STATE.view === 'hex') {
-      const breaks = makeLegendThresholds(values.filter(v => v > 0), STATE.scale);
+      const breaks = makeLegendThresholds(STATE.scale);
       const labels = $('ncm-legend-labels');
-      labels.innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+      labels.innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
     }
     return total;
   }
@@ -841,6 +848,55 @@
     }
     $('ncm-stat-chronic').textContent = chronicCount.toLocaleString();
     $('ncm-stat-chronic-sub').textContent = `${STATE.threshold}+ complaints`;
+
+    renderBucketChart();
+  }
+
+  function renderBucketChart() {
+    const el = $('ncm-bucket-chart'); if (!el) return;
+    let counts = [0, 0, 0, 0];
+    if (STATE.mode === 'saturday' && STATE.saturdayData) {
+      const subIdx = STATE.subtype === 'all' ? -1 : STATE.saturdayData.subtypes.indexOf(STATE.subtype);
+      for (const p of STATE.saturdayData.points) {
+        if (subIdx !== -1 && p[2] !== subIdx) continue;
+        const b = bucketForHour(p[3]);
+        counts[b]++;
+      }
+    } else {
+      const data = STATE.hexData[STATE.period];
+      if (data) {
+        const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
+        for (const h of data.hexes) {
+          for (let b = 0; b < 4; b++) {
+            const row = h[2][b];
+            if (!row) continue;
+            if (subIdx === -1) for (let i = 0; i < row.length; i++) counts[b] += row[i];
+            else counts[b] += row[subIdx] || 0;
+          }
+        }
+      }
+    }
+    const max = Math.max(1, ...counts);
+    const sel = STATE.bucket;
+    el.innerHTML = counts.map((c, i) => {
+      const h = Math.max(2, Math.round(54 * c / max));
+      const isSel = sel === 'all' || sel === String(i);
+      const fill = isSel ? '#050507' : '#dddddd';
+      const lbl = c >= 1000 ? `${(c/1000).toFixed(c >= 10000 ? 0 : 1)}k` : c.toLocaleString();
+      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;cursor:pointer;" data-bucket="${i}">
+        <div style="font-size:9.5px;font-weight:700;color:${isSel ? '#050507' : '#9a9a9a'};font-variant-numeric:tabular-nums;margin-bottom:2px;">${lbl}</div>
+        <div style="width:100%;height:${h}px;background:${fill};"></div>
+      </div>`;
+    }).join('');
+    // Click bars to switch bucket
+    el.querySelectorAll('[data-bucket]').forEach(node => {
+      node.addEventListener('click', () => {
+        const b = node.dataset.bucket;
+        document.querySelectorAll('#ncm-bucket-ctl button').forEach(x => x.classList.toggle('is-active', x.dataset.bucket === b));
+        STATE.bucket = b;
+        rerender();
+      });
+    });
   }
 
   function renderSaturdayLegend() {
@@ -1083,10 +1139,8 @@
     // Refresh legend labels for current view
     const data = STATE.hexData[STATE.period];
     if (data && (STATE.view === 'heat' || STATE.view === 'hex')) {
-      const subIdx = STATE.subtype === 'all' ? -1 : data.subtypes.indexOf(STATE.subtype);
-      const values = data.hexes.map(h => getHexValue(h, subIdx)).filter(v => v > 0);
-      const breaks = makeLegendThresholds(values, STATE.scale);
-      $('ncm-legend-labels').innerHTML = breaks.map(v => `<span>${v.toLocaleString()}</span>`).join('');
+      const breaks = makeLegendThresholds(STATE.scale);
+      $('ncm-legend-labels').innerHTML = breaks.map(v => `<span>${typeof v === 'number' ? v.toLocaleString() : v}</span>`).join('');
     }
   }
 
