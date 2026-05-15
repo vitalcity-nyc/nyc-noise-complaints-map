@@ -3,15 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>New York City 311 noise complaints — interactive map</title>
+<title>New York City 311 noise complaints / interactive map</title>
 <meta name="description" content="Interactive map of New York City 311 noise complaints in 2025 and year-to-date 2026, filterable by noise type, with chronic complaint hotspots.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
 <style>
+@font-face {
+  font-family: 'GascogneTS';
+  src: url('https://vital-city-nyc.github.io/vital-city-design-system/fonts/GascogneTS-Light.ttf') format('truetype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+
 /* All styles scoped under .ncm-root so this can be embedded inside a Ghost post or any
    other page without leaking. The standalone view at index.html wraps the body in .ncm-root
    and adds .ncm-fullscreen which fills the viewport. */
@@ -61,94 +68,123 @@
 /* ------- Panel ------- */
 .ncm-panel {
   position: absolute;
-  top: 16px; left: 16px;
-  width: 340px;
-  max-height: calc(100% - 32px);
+  top: 18px; left: 18px;
+  width: 348px;
+  max-height: calc(100% - 36px);
   background: var(--ncm-white);
   border: 1px solid var(--ncm-black);
   z-index: 1000;
   overflow-y: auto;
-  box-shadow: 4px 4px 0 var(--ncm-chartreuse);
-  scrollbar-width: none;            /* Firefox */
-  -ms-overflow-style: none;         /* IE/old Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.ncm-panel::-webkit-scrollbar { width: 0; height: 0; display: none; }  /* Chrome/Safari */
+.ncm-panel::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
-.ncm-panel-inner { padding: 20px 22px 22px; }
+.ncm-panel-header {
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--ncm-black);
+  background: var(--ncm-white);
+}
+.ncm-panel-body { padding: 16px 20px 20px; }
 
 .ncm-kicker {
+  font-family: var(--ncm-font-sans);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--ncm-black);
-  margin-bottom: 8px;
+  color: var(--ncm-charcoal);
+  margin-bottom: 10px;
   display: flex; align-items: center; gap: 8px;
 }
 .ncm-kicker::before {
   content: "";
   display: inline-block;
-  width: 18px; height: 2px; background: var(--ncm-orange);
+  width: 22px; height: 2px; background: var(--ncm-orange);
 }
 
 .ncm-title {
-  font-family: var(--ncm-font-serif);
-  font-weight: 700;
-  font-size: 24px;
-  line-height: 1.1;
-  margin-bottom: 6px;
+  font-family: var(--ncm-font-sans);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.16;
+  margin: 0 0 8px;
   letter-spacing: -0.01em;
+  color: var(--ncm-black);
 }
 
 .ncm-deck {
-  font-size: 13px;
+  font-family: var(--ncm-font-sans);
+  font-size: 12.5px;
+  font-weight: 300;
   line-height: 1.5;
-  color: var(--ncm-charcoal);
-  margin-bottom: 18px;
+  color: var(--ncm-black);
+  margin: 0;
 }
+.ncm-deck strong, .ncm-deck b { font-weight: 700; }
 
 .ncm-mode {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-  background: var(--ncm-black);
-  border: 1px solid var(--ncm-black);
-  margin-bottom: 18px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--ncm-black);
 }
 .ncm-mode-btn {
   background: var(--ncm-white);
   border: 0;
-  padding: 11px 12px;
+  border-right: 1px solid var(--ncm-cloud);
+  padding: 11px 14px;
   text-align: left;
   cursor: pointer;
   font-family: var(--ncm-font-sans);
+  color: var(--ncm-black);
 }
+.ncm-mode-btn:last-child { border-right: 0; }
 .ncm-mode-btn:hover:not(.is-active) { background: var(--ncm-paper); }
 .ncm-mode-btn.is-active { background: var(--ncm-black); color: var(--ncm-white); }
-.ncm-mode-btn .ncm-mode-title { display: block; font-weight: 700; font-size: 12.5px; letter-spacing: 0.01em; }
-.ncm-mode-btn .ncm-mode-sub { display: block; font-size: 10.5px; opacity: 0.7; margin-top: 2px; }
+.ncm-mode-btn .ncm-mode-title { display: block; font-weight: 700; font-size: 12px; letter-spacing: 0.01em; }
+.ncm-mode-btn .ncm-mode-sub { display: block; font-size: 10.5px; opacity: 0.7; margin-top: 3px; font-weight: 400; }
 
 .ncm-rule {
-  height: 1px; background: var(--ncm-black); border: 0;
-  margin: 14px 0 14px;
+  height: 1px; background: var(--ncm-cloud); border: 0;
+  margin: 14px 0;
 }
 
 .ncm-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-  background: var(--ncm-black);
-  border: 1px solid var(--ncm-black);
-  margin-bottom: 16px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--ncm-paper);
+  border-bottom: 1px solid var(--ncm-black);
 }
 .ncm-stat {
-  background: var(--ncm-paper);
-  padding: 10px 12px;
+  padding: 12px 16px 14px;
+  border-right: 1px solid var(--ncm-cloud);
 }
-.ncm-stat-label { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ncm-charcoal); margin-bottom: 4px; font-weight: 600; }
-.ncm-stat-value { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 22px; line-height: 1.05; }
-.ncm-stat-sub { font-size: 11px; color: var(--ncm-charcoal); margin-top: 2px; }
+.ncm-stat:last-child { border-right: 0; }
+.ncm-stat-value {
+  display: block;
+  font-family: var(--ncm-font-serif);
+  font-weight: 300;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--ncm-black);
+  margin-bottom: 6px;
+}
+.ncm-stat-label {
+  display: block;
+  font-family: var(--ncm-font-sans);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ncm-charcoal);
+}
+.ncm-stat-sub { display: none; }
 
 .ncm-section { margin-bottom: 14px; }
+.ncm-section + .ncm-section { margin-top: 14px; }
 .ncm-section-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--ncm-black);
+  font-family: var(--ncm-font-sans);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ncm-charcoal);
   margin-bottom: 7px;
 }
 
@@ -158,13 +194,13 @@
 }
 .ncm-segctl button {
   flex: 1;
-  padding: 7px 0;
+  padding: 7px 4px;
   background: var(--ncm-white);
   border: 0;
-  border-right: 1px solid var(--ncm-black);
+  border-right: 1px solid var(--ncm-cloud);
   font-family: var(--ncm-font-sans);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--ncm-black);
   cursor: pointer;
   letter-spacing: 0.02em;
@@ -175,28 +211,28 @@
 
 .ncm-select {
   width: 100%;
-  padding: 8px 10px;
+  padding: 8px 28px 8px 10px;
   background: var(--ncm-white);
   border: 1px solid var(--ncm-black);
   font-family: var(--ncm-font-sans);
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 400;
   color: var(--ncm-black);
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M0 0l5 6 5-6z' fill='%23050507'/></svg>");
   background-repeat: no-repeat;
   background-position: right 10px center;
-  padding-right: 28px;
   outline: none;
 }
-.ncm-select:focus { box-shadow: 2px 2px 0 var(--ncm-chartreuse); }
+.ncm-select:focus { border-color: var(--ncm-orange); }
 
 .ncm-slider-wrap { display: flex; align-items: center; gap: 10px; }
 .ncm-slider-wrap input[type=range] { flex: 1; accent-color: var(--ncm-orange); }
 .ncm-slider-val {
-  font-family: var(--ncm-font-serif); font-weight: 700;
-  font-size: 14px; min-width: 56px; text-align: right;
-  color: var(--ncm-black);
+  font-family: var(--ncm-font-sans); font-weight: 700;
+  font-size: 13px; min-width: 56px; text-align: right;
+  color: var(--ncm-black); font-variant-numeric: tabular-nums;
 }
 
 .ncm-legend { margin: 14px 0 12px; }
@@ -231,9 +267,9 @@
   cursor: pointer;
 }
 .ncm-toplist-item:hover { background: var(--ncm-paper); }
-.ncm-toplist-rank { font-family: var(--ncm-font-serif); color: var(--ncm-charcoal); font-size: 11px; font-weight: 600; }
+.ncm-toplist-rank { font-family: var(--ncm-font-sans); color: var(--ncm-charcoal); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ncm-toplist-addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ncm-toplist-count { font-family: var(--ncm-font-serif); font-weight: 700; color: var(--ncm-heat-5); font-variant-numeric: tabular-nums; }
+.ncm-toplist-count { font-family: var(--ncm-font-sans); font-weight: 700; color: var(--ncm-heat-5); font-variant-numeric: tabular-nums; font-size: 12.5px; }
 
 .ncm-footer-meta {
   margin-top: 16px;
@@ -274,16 +310,16 @@
   color: var(--ncm-black);
   border: 1px solid var(--ncm-black);
   border-radius: 0;
-  box-shadow: 4px 4px 0 var(--ncm-chartreuse);
+  box-shadow: none;
 }
 .ncm-root .leaflet-popup-content { font-family: var(--ncm-font-sans); font-size: 12.5px; margin: 14px 16px; line-height: 1.45; }
-.ncm-root .leaflet-popup-tip { background: var(--ncm-white); border: 1px solid var(--ncm-black); }
+.ncm-root .leaflet-popup-tip { background: var(--ncm-white); border: 1px solid var(--ncm-black); box-shadow: none; }
 .ncm-root .leaflet-popup-close-button { color: var(--ncm-charcoal) !important; padding: 6px 8px 0 0 !important; }
 
 .ncm-pop-kicker { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--ncm-orange); margin-bottom: 4px; }
-.ncm-pop-addr { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 15px; line-height: 1.2; margin-bottom: 2px; }
+.ncm-pop-addr { font-family: var(--ncm-font-sans); font-weight: 700; font-size: 14px; line-height: 1.25; margin-bottom: 2px; letter-spacing: -0.005em; }
 .ncm-pop-meta { font-size: 11px; color: var(--ncm-charcoal); margin-bottom: 8px; }
-.ncm-pop-big { font-family: var(--ncm-font-serif); font-weight: 700; font-size: 30px; line-height: 1; color: var(--ncm-heat-5); }
+.ncm-pop-big { font-family: var(--ncm-font-serif); font-weight: 300; font-size: 34px; line-height: 1; color: var(--ncm-heat-5); letter-spacing: 0; }
 .ncm-pop-big-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ncm-charcoal); margin-bottom: 2px; font-weight: 600; }
 .ncm-pop-bar-row { display: grid; grid-template-columns: 1fr 36px; gap: 6px; align-items: center; font-size: 11px; padding: 2px 0; }
 .ncm-pop-bar-row .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -298,9 +334,12 @@
   .ncm-panel {
     top: auto; bottom: 0; left: 0; right: 0;
     width: 100%; max-height: 56%;
-    box-shadow: 0 -4px 0 var(--ncm-chartreuse);
+    border-left: 0; border-right: 0; border-bottom: 0;
   }
   .ncm-fullscreen .ncm-panel { max-height: 60%; }
+  .ncm-panel-header { padding: 14px 16px 14px; }
+  .ncm-panel-body { padding: 14px 16px 18px; }
+  .ncm-title { font-size: 19px; }
 }
 </style>
 </head>
@@ -310,35 +349,35 @@
   <div id="ncm-map"></div>
 
   <div class="ncm-panel">
-    <div class="ncm-panel-inner">
-      <div class="ncm-kicker">Sound and the city <span style="opacity:0.4">/</span> 311 complaints + DEP violations</div>
-      <h1 class="ncm-title">Who calls 311 about noise — and where the city issues tickets</h1>
-      <p class="ncm-deck">Every 311 noise complaint in 2025 and year-to-date 2026, plus every DEP noise-code violation issued in the same window — including the noise-camera tickets for loud vehicles.</p>
+    <div class="ncm-panel-header">
+      <div class="ncm-kicker">Sound and the city</div>
+      <h1 class="ncm-title">Where New York calls 311 about noise, and where the city writes tickets</h1>
+      <p class="ncm-deck">Every 311 noise complaint filed in 2025 and year-to-date 2026, plus every DEP noise-code violation issued in the same window. Vehicle-sound tickets come from the city's noise-camera program.</p>
+    </div>
 
-      <div class="ncm-mode" id="ncm-mode">
-        <button class="ncm-mode-btn is-active" data-mode="full">
-          <span class="ncm-mode-title">Full window</span>
-          <span class="ncm-mode-sub">2025 + 2026 YTD</span>
-        </button>
-        <button class="ncm-mode-btn" data-mode="saturday">
-          <span class="ncm-mode-title">Last Saturday night</span>
-          <span class="ncm-mode-sub" id="ncm-saturday-label">—</span>
-        </button>
+    <div class="ncm-mode" id="ncm-mode">
+      <button class="ncm-mode-btn is-active" data-mode="full">
+        <span class="ncm-mode-title">Full window</span>
+        <span class="ncm-mode-sub">2025 and 2026 YTD</span>
+      </button>
+      <button class="ncm-mode-btn" data-mode="saturday">
+        <span class="ncm-mode-title">Last Saturday night</span>
+        <span class="ncm-mode-sub" id="ncm-saturday-label"></span>
+      </button>
+    </div>
+
+    <div class="ncm-stats">
+      <div class="ncm-stat">
+        <span class="ncm-stat-value" id="ncm-stat-total">0</span>
+        <span class="ncm-stat-label" id="ncm-stat-total-sub">Total complaints</span>
       </div>
-
-      <div class="ncm-stats">
-        <div class="ncm-stat">
-          <div class="ncm-stat-label">Total complaints</div>
-          <div class="ncm-stat-value" id="ncm-stat-total">—</div>
-          <div class="ncm-stat-sub" id="ncm-stat-total-sub">in selection</div>
-        </div>
-        <div class="ncm-stat">
-          <div class="ncm-stat-label">Chronic addresses</div>
-          <div class="ncm-stat-value" id="ncm-stat-chronic">—</div>
-          <div class="ncm-stat-sub" id="ncm-stat-chronic-sub">at threshold</div>
-        </div>
+      <div class="ncm-stat">
+        <span class="ncm-stat-value" id="ncm-stat-chronic">0</span>
+        <span class="ncm-stat-label" id="ncm-stat-chronic-sub">Chronic addresses</span>
       </div>
+    </div>
 
+    <div class="ncm-panel-body">
       <div class="ncm-section">
         <div class="ncm-section-label">Period</div>
         <div class="ncm-segctl" id="ncm-period-ctl">
@@ -356,7 +395,7 @@
       </div>
 
       <div class="ncm-section">
-        <div class="ncm-section-label">Time of day <span style="font-weight:400;color:var(--ncm-charcoal);text-transform:none;letter-spacing:0;">· local time</span></div>
+        <div class="ncm-section-label">Time of day <span style="font-weight:400;color:var(--ncm-charcoal);text-transform:none;letter-spacing:0;">/ local time</span></div>
         <div class="ncm-segctl" id="ncm-bucket-ctl">
           <button data-bucket="all" class="is-active">All</button>
           <button data-bucket="0">Morning</button>
@@ -366,7 +405,7 @@
         </div>
         <div class="ncm-bucket-chart" id="ncm-bucket-chart" style="margin-top:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:end;height:54px;"></div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
-          <div></div><div>6a–12p</div><div>12p–6p</div><div>6p–12a</div><div>12a–6a</div>
+          <div></div><div>6a to 12p</div><div>12p to 6p</div><div>6p to 12a</div><div>12a to 6a</div>
         </div>
       </div>
 
@@ -433,11 +472,11 @@
           <summary>Methodology and notes</summary>
           <p style="margin:6px 0 8px;">Source: NYC 311 Service Requests dataset (<code>erm2-nwe9</code>) on NYC Open Data. Filter: <code>complaint_type</code> begins with "Noise". Date field: <code>created_date</code>.</p>
           <p style="margin:6px 0 8px;"><strong>What's a "chronic" address?</strong> A point on the map that has received at least the threshold number of complaints in the selected time window, after rounding lat/lng coordinates to roughly 50-meter blocks (so closely-spaced addresses are merged).</p>
-          <p style="margin:6px 0 8px;"><strong>Helicopter caveat:</strong> Helicopter noise complaints are filed against an address but the helicopter is rarely overhead — many cluster at LaGuardia, JFK, and Manhattan heliports rather than where residents heard it.</p>
+          <p style="margin:6px 0 8px;"><strong>Helicopter caveat:</strong> Helicopter noise complaints are filed against an address but the helicopter is rarely overhead. Many cluster at LaGuardia, JFK, and Manhattan heliports rather than where residents heard it.</p>
           <p style="margin:6px 0 8px;"><strong>What this map is not:</strong> a measurement of how loud New York is. It is a measurement of where and when residents called 311. Reporting rates vary by neighborhood, and many noise events go unreported.</p>
           <p style="margin:6px 0;"><a href="methodology.md" target="_blank" rel="noopener">Full methodology →</a></p>
         </details>
-        <p style="margin-top:10px;">Data refreshed <span id="ncm-refresh-date">—</span>. Built with <a href="https://leafletjs.com/">Leaflet</a> and <a href="https://h3geo.org/">H3</a>.</p>
+        <p style="margin-top:10px;">Data refreshed <span id="ncm-refresh-date">recently</span>. Built with <a href="https://leafletjs.com/">Leaflet</a> and <a href="https://h3geo.org/">H3</a>.</p>
       </div>
     </div>
   </div>
@@ -812,10 +851,10 @@
       const data = STATE.saturdayData;
       const total = data ? data.points.length : 0;
       $('ncm-stat-total').textContent = total.toLocaleString();
-      $('ncm-stat-total-sub').textContent = data ? data.window_label : '—';
+      $('ncm-stat-total-sub').textContent = 'Complaints filed';
       const rendered = STATE._satRenderedCount || 0;
       $('ncm-stat-chronic').textContent = rendered.toLocaleString();
-      $('ncm-stat-chronic-sub').textContent = `dots shown · ${STATE.subtype === 'all' ? 'all types' : STATE.subtype.toLowerCase()} · ${bucketLabel()}`;
+      $('ncm-stat-chronic-sub').textContent = 'Dots shown';
       renderSaturdayLegend();
       return;
     }
@@ -827,7 +866,7 @@
       for (const h of data.hexes) total += getHexValue(h, subIdx, buckets);
     }
     $('ncm-stat-total').textContent = total.toLocaleString();
-    $('ncm-stat-total-sub').textContent = `${STATE.subtype === 'all' ? 'all types' : STATE.subtype.toLowerCase()} · ${periodLabel(STATE.period)} · ${bucketLabel()}`;
+    $('ncm-stat-total-sub').textContent = 'Total complaints';
 
     const cd = STATE.chronicData[STATE.period];
     let chronicCount = 0;
@@ -839,7 +878,7 @@
       }
     }
     $('ncm-stat-chronic').textContent = chronicCount.toLocaleString();
-    $('ncm-stat-chronic-sub').textContent = `${STATE.threshold}+ complaints`;
+    $('ncm-stat-chronic-sub').textContent = `Chronic addresses (${STATE.threshold}+)`;
 
     renderBucketChart();
   }
