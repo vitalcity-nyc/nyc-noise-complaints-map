@@ -35,10 +35,9 @@ body { padding: 28px 16px; }
 .vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
 .vc-kicker {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--vc-charcoal);
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  text-transform: uppercase; color: var(--vc-orange);
+  margin-bottom: 10px;
 }
-.vc-kicker::before { content: ""; display: inline-block; width: 22px; height: 2px; background: var(--vc-orange); }
 .vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
 .vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 60ch; }
 .vc-dek strong { font-weight: 700; }
@@ -120,7 +119,7 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
 
   <div class="vc-footer">
     Sources: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise"; borough populations from the American Community Survey 2023 one-year estimates. Total counts include only complaints filed at addresses with 10 or more noise complaints in the period (82 percent of the citywide total); per-capita rates are calculated on that same set. Window: January 1, 2025 through May 1, 2026.
-    <div style="margin-top:10px;"><span class="vc-wordmark">Vital City</span> &nbsp;·&nbsp; <a href="../">Interactive map</a></div>
+    <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
   </div>
 </div>
 

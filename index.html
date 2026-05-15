@@ -93,14 +93,8 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--ncm-charcoal);
+  color: var(--ncm-orange);
   margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px;
-}
-.ncm-kicker::before {
-  content: "";
-  display: inline-block;
-  width: 22px; height: 2px; background: var(--ncm-orange);
 }
 
 .ncm-title {
@@ -330,6 +324,41 @@
 .ncm-leaflet-attribution { font-size: 10px; }
 .ncm-root .leaflet-control-attribution { background: rgba(255,255,255,0.85); }
 
+/* Embed / fullscreen toggle: visible in embed mode and when running standalone in fullscreen */
+.ncm-fs-btn {
+  position: absolute;
+  top: 12px; right: 12px;
+  z-index: 1100;
+  background: var(--ncm-black);
+  color: var(--ncm-white);
+  border: 1px solid var(--ncm-black);
+  font-family: var(--ncm-font-sans);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 7px 11px;
+  cursor: pointer;
+  display: none;
+}
+.ncm-fs-btn:hover { background: var(--ncm-orange); border-color: var(--ncm-orange); }
+.ncm-root.is-embed .ncm-fs-btn { display: inline-block; }
+.ncm-root.is-fs .ncm-fs-btn { display: inline-block; }
+
+/* Embed mode: switch fullscreen-ish layout off; use a fixed-height embed shell */
+.ncm-root.is-embed {
+  position: relative;
+  inset: auto;
+  height: 600px;
+  width: 100%;
+  background: var(--ncm-paper);
+  border: 0;
+}
+.ncm-root.is-embed .ncm-panel {
+  max-height: calc(100% - 36px);
+}
+@media (max-width: 720px) {
+  .ncm-root.is-embed { height: 560px; }
+}
+
 @media (max-width: 720px) {
   .ncm-panel {
     top: auto; bottom: 0; left: 0; right: 0;
@@ -347,6 +376,7 @@
 
 <div class="ncm-root ncm-fullscreen" id="ncm-mount">
   <div id="ncm-map"></div>
+  <button class="ncm-fs-btn" id="ncm-fs-btn" type="button" aria-label="Expand to full screen">Full screen ↗</button>
 
   <div class="ncm-panel">
     <div class="ncm-panel-header">
@@ -491,6 +521,36 @@
 (function() {
   const ROOT = document.getElementById('ncm-mount');
   const $ = (id) => document.getElementById(id);
+
+  // Embed mode: ?embed=1 strips the fullscreen layout and exposes the expand button.
+  // Standalone URL still renders the bordered fullscreen map.
+  const IS_EMBED = new URLSearchParams(location.search).get('embed') === '1';
+  if (IS_EMBED) {
+    ROOT.classList.remove('ncm-fullscreen');
+    ROOT.classList.add('is-embed');
+    document.body.style.background = '#ffffff';
+  }
+
+  // Fullscreen toggle: requests fullscreen on the mount node so the map fills the screen.
+  const fsBtn = $('ncm-fs-btn');
+  const fsTarget = ROOT;
+  function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function setFsLabel() { fsBtn.textContent = isFs() ? 'Close ✕' : 'Full screen ↗'; }
+  fsBtn.addEventListener('click', () => {
+    if (isFs()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
+      if (req) req.call(fsTarget);
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    ROOT.classList.toggle('is-fs', isFs());
+    setFsLabel();
+    // Leaflet needs a nudge after the container resizes
+    if (STATE.map) setTimeout(() => STATE.map.invalidateSize(), 60);
+  });
+  setFsLabel();
 
   const STATE = {
     mode: 'full',          // full | saturday

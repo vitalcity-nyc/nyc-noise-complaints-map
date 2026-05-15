@@ -28,73 +28,92 @@
 html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
 body { padding: 28px 16px; }
 .vc-card {
-  max-width: 880px; margin: 0 auto;
+  max-width: 760px; margin: 0 auto;
   background: var(--vc-white);
   border: 1px solid var(--vc-black);
 }
 .vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
 .vc-kicker {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--vc-charcoal);
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  text-transform: uppercase; color: var(--vc-orange);
+  margin-bottom: 10px;
 }
-.vc-kicker::before { content: ""; display: inline-block; width: 22px; height: 2px; background: var(--vc-orange); }
 .vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
 .vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 64ch; }
 .vc-dek strong { font-weight: 700; }
 
-.vc-grid {
+.vc-heatmap {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 168px repeat(4, 1fr) 76px;
+  border-bottom: 1px solid var(--vc-black);
 }
-.vc-cell {
-  padding: 16px 20px 18px;
+.vc-hm-head, .vc-hm-cell, .vc-hm-row-label, .vc-hm-row-total {
+  padding: 10px 12px;
   border-right: 1px solid var(--vc-cloud);
   border-bottom: 1px solid var(--vc-cloud);
+  display: flex; align-items: center;
 }
-.vc-cell:nth-child(2n) { border-right: 0; }
-.vc-cell:nth-last-child(-n+2) { border-bottom: 0; }
-.vc-cell-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; gap: 12px; }
-.vc-cell-name { font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; }
-.vc-cell-total { font-family: var(--vc-serif); font-weight: 300; font-size: 18px; color: var(--vc-black); font-variant-numeric: tabular-nums; }
-.vc-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-items: end; height: 70px; }
-.vc-bar-col { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; height: 100%; position: relative; }
-.vc-bar {
-  width: 100%;
-  background: var(--vc-magenta);
-  min-height: 2px;
-  transition: opacity 0.2s;
+.vc-hm-head {
+  font-family: var(--vc-sans);
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--vc-charcoal);
+  justify-content: center;
+  background: var(--vc-paper);
+  height: 38px;
 }
-.vc-bar-peak { background: var(--vc-magenta); }
-.vc-bar-other { background: var(--vc-cloud); }
-.vc-bar-pct {
-  position: absolute; top: -16px; left: 0; right: 0;
-  text-align: center;
-  font-family: var(--vc-sans); font-size: 9.5px; font-weight: 700;
-  color: var(--vc-charcoal); font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+.vc-hm-head.is-label {
+  background: var(--vc-paper);
+  justify-content: flex-start;
 }
-.vc-bar-pct.is-peak { color: var(--vc-magenta); }
-.vc-bucket-labels {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-  margin-top: 6px;
-  font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--vc-charcoal); font-weight: 700; text-align: center;
+.vc-hm-row-label {
+  font-size: 13px; font-weight: 700;
+  flex-direction: column; align-items: flex-start; justify-content: center;
+  background: var(--vc-white);
 }
+.vc-hm-row-label .sub { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; color: var(--vc-charcoal); margin-top: 3px; text-transform: uppercase; }
+.vc-hm-cell {
+  justify-content: center;
+  font-family: var(--vc-sans);
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--vc-black);
+  height: 44px;
+  position: relative;
+}
+.vc-hm-cell.is-peak { color: var(--vc-white); }
+.vc-hm-row-total {
+  justify-content: flex-end;
+  font-family: var(--vc-serif);
+  font-weight: 300; font-size: 18px;
+  color: var(--vc-black);
+  font-variant-numeric: tabular-nums;
+  border-right: 0;
+  background: var(--vc-paper);
+}
+/* Last row has no bottom border (border on the heatmap itself takes over) */
+.vc-heatmap > div:nth-last-child(-n+6) { border-bottom: 0; }
 
-.vc-footer { padding: 14px 24px 18px; border-top: 1px solid var(--vc-cloud); font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
+.vc-legend { padding: 12px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--vc-cloud); flex-wrap: wrap; }
+.vc-legend-lbl { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--vc-charcoal); }
+.vc-legend-scale { display: flex; align-items: center; gap: 1px; }
+.vc-legend-sw { width: 18px; height: 12px; }
+
+.vc-footer { padding: 14px 24px 18px; font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
 .vc-footer a { color: var(--vc-black); text-decoration: underline; }
-.vc-wordmark { font-family: var(--vc-sans); font-weight: 800; letter-spacing: 0.04em; color: var(--vc-black); font-size: 11px; text-transform: uppercase; }
 
 body.embed { padding: 0; background: var(--vc-white); }
 body.embed .vc-card { border: 0; max-width: none; }
 
 @media (max-width: 640px) {
-  .vc-grid { grid-template-columns: 1fr; }
-  .vc-cell { border-right: 0; border-bottom: 1px solid var(--vc-cloud); }
-  .vc-cell:last-child { border-bottom: 0; }
+  .vc-heatmap { grid-template-columns: 110px repeat(4, 1fr) 60px; }
+  .vc-hm-row-label { font-size: 11.5px; }
+  .vc-hm-row-label .sub { display: none; }
+  .vc-hm-cell { font-size: 11.5px; height: 38px; padding: 6px 4px; }
+  .vc-hm-row-total { font-size: 14px; padding: 6px 8px; }
+  .vc-hm-head { font-size: 8.5px; padding: 6px 4px; }
   .vc-title { font-size: 19px; }
-  .vc-header, .vc-footer { padding-left: 18px; padding-right: 18px; }
+  .vc-header, .vc-footer, .vc-legend { padding-left: 18px; padding-right: 18px; }
 }
 </style>
 </head>
@@ -116,14 +135,20 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
     <h1 class="vc-title">Every kind of noise has its own rhythm</h1>
-    <p class="vc-dek"><strong>Commercial noise</strong> peaks at night. <strong>House of worship</strong> peaks in the morning. <strong>Helicopters</strong> are almost never reported after dark. Each row shows what share of that category's complaints arrive in each block of the day.</p>
+    <p class="vc-dek">Each cell shows what share of that category's complaints arrive in that block of the day. <strong>Commercial</strong> noise peaks at night. <strong>Houses of worship</strong> peak in the morning. <strong>Helicopters</strong> are almost never reported after dark.</p>
   </div>
 
-  <div class="vc-grid" id="vc-grid"></div>
+  <div class="vc-heatmap" id="vc-heatmap"></div>
+
+  <div class="vc-legend">
+    <span class="vc-legend-lbl">Share of category's complaints</span>
+    <span class="vc-legend-scale" id="vc-legend-scale"></span>
+    <span class="vc-legend-lbl" id="vc-legend-range"></span>
+  </div>
 
   <div class="vc-footer">
-    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Each bar is that category's share of complaints in the local-time block. Time blocks: morning 6 a.m. to noon, afternoon noon to 6 p.m., evening 6 p.m. to midnight, late night midnight to 6 a.m. Window: January 1, 2025 through May 1, 2026.
-    <div style="margin-top:10px;"><span class="vc-wordmark">Vital City</span> &nbsp;·&nbsp; <a href="../">Interactive map</a></div>
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Time blocks use local time: morning 6 a.m. to noon, afternoon noon to 6 p.m., evening 6 p.m. to midnight, late night midnight to 6 a.m. Window: January 1, 2025 through May 1, 2026.
+    <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
   </div>
 </div>
 
@@ -138,31 +163,51 @@ const SUBS = [
 ];
 const BUCKET_LABELS = ['Morning', 'Afternoon', 'Evening', 'Late night'];
 
-const html = SUBS.map(sub => {
-  const peak = sub.buckets.indexOf(Math.max(...sub.buckets));
-  const bars = sub.buckets.map((pct, i) => {
-    const h = Math.max(2, pct * 1.4);
-    const cls = i === peak ? 'vc-bar-peak' : 'vc-bar-other';
-    const pctCls = i === peak ? 'is-peak' : '';
-    return `
-      <div class="vc-bar-col" style="height:100%;">
-        <div class="vc-bar-pct ${pctCls}">${pct}%</div>
-        <div class="vc-bar ${cls}" style="height:${h}px;"></div>
-      </div>
-    `;
-  }).join('');
-  return `
-    <div class="vc-cell">
-      <div class="vc-cell-head">
-        <div class="vc-cell-name">${sub.name}</div>
-        <div class="vc-cell-total">${sub.total.toLocaleString()}</div>
-      </div>
-      <div class="vc-bars">${bars}</div>
-      <div class="vc-bucket-labels">${BUCKET_LABELS.map(l => `<div>${l}</div>`).join('')}</div>
-    </div>
-  `;
-}).join('');
-document.getElementById('vc-grid').innerHTML = html;
+const maxPct = Math.max(...SUBS.flatMap(s => s.buckets));
+const minPct = Math.min(...SUBS.flatMap(s => s.buckets));
+
+function color(p) {
+  const t = (p - minPct) / (maxPct - minPct);
+  // Paper → magenta interpolation
+  const r0 = 247, g0 = 247, b0 = 244;
+  const r1 = 231, g1 = 70,  b1 = 109;
+  const r = Math.round(r0 + (r1 - r0) * t);
+  const g = Math.round(g0 + (g1 - g0) * t);
+  const b = Math.round(b0 + (b1 - b0) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// Header row
+let html = `
+  <div class="vc-hm-head is-label">Category</div>
+  ${BUCKET_LABELS.map(l => `<div class="vc-hm-head">${l}</div>`).join('')}
+  <div class="vc-hm-head" style="justify-content:flex-end;">Total</div>
+`;
+
+// Body rows
+SUBS.forEach(s => {
+  html += `<div class="vc-hm-row-label">${s.name}</div>`;
+  s.buckets.forEach((p, i) => {
+    const bg = color(p);
+    const peak = p >= 0.55 * maxPct;
+    html += `<div class="vc-hm-cell ${peak ? 'is-peak' : ''}" style="background:${bg};">${p}%</div>`;
+  });
+  html += `<div class="vc-hm-row-total">${s.total.toLocaleString()}</div>`;
+});
+
+document.getElementById('vc-heatmap').innerHTML = html;
+
+// Legend swatches
+const scale = document.getElementById('vc-legend-scale');
+const steps = 6;
+for (let i = 0; i < steps; i++) {
+  const p = minPct + (maxPct - minPct) * i / (steps - 1);
+  const sw = document.createElement('span');
+  sw.className = 'vc-legend-sw';
+  sw.style.background = color(p);
+  scale.appendChild(sw);
+}
+document.getElementById('vc-legend-range').textContent = `${minPct}% to ${maxPct}%`;
 </script>
 </body>
 </html>
