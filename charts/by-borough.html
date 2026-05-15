@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where New York calls 311 about noise / by borough</title>
+<meta name="description" content="New York City 311 noise complaints by borough, per capita, January 2025 through April 2026.">
+<link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
+<style>
+@font-face {
+  font-family: 'GascogneTS';
+  src: url('https://vital-city-nyc.github.io/vital-city-design-system/fonts/GascogneTS-Light.ttf') format('truetype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+:root {
+  --vc-black: #050507;
+  --vc-white: #ffffff;
+  --vc-cloud: #dddddd;
+  --vc-paper: #f7f7f4;
+  --vc-charcoal: #707175;
+  --vc-orange: #ff7c53;
+  --vc-magenta: #e7466d;
+  --vc-cerulean: #217ebe;
+  --vc-sans: "halyard-text", "Helvetica Neue", Arial, sans-serif;
+  --vc-serif: "GascogneTS", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
+body { padding: 28px 16px; }
+.vc-card {
+  max-width: 760px; margin: 0 auto;
+  background: var(--vc-white);
+  border: 1px solid var(--vc-black);
+}
+.vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
+.vc-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--vc-charcoal);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.vc-kicker::before { content: ""; display: inline-block; width: 22px; height: 2px; background: var(--vc-orange); }
+.vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
+.vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 60ch; }
+.vc-dek strong { font-weight: 700; }
+
+.vc-toggle {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--vc-black);
+}
+.vc-toggle button {
+  background: var(--vc-white); border: 0; border-right: 1px solid var(--vc-cloud);
+  padding: 11px 14px; cursor: pointer;
+  font-family: var(--vc-sans); color: var(--vc-black); text-align: left;
+}
+.vc-toggle button:last-child { border-right: 0; }
+.vc-toggle button.is-active { background: var(--vc-black); color: var(--vc-white); }
+.vc-toggle button:hover:not(.is-active) { background: var(--vc-paper); }
+.vc-toggle .lbl { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.01em; }
+.vc-toggle .sub { display: block; font-size: 10.5px; font-weight: 400; opacity: 0.7; margin-top: 3px; }
+
+.vc-chart { padding: 22px 24px 18px; }
+.vc-row { display: grid; grid-template-columns: 130px 1fr 110px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--vc-cloud); }
+.vc-row:last-child { border-bottom: 0; }
+.vc-row-label { font-size: 14px; font-weight: 700; color: var(--vc-black); }
+.vc-row-sub { display: block; font-size: 10px; font-weight: 600; color: var(--vc-charcoal); letter-spacing: 0.04em; margin-top: 3px; text-transform: uppercase; }
+.vc-row-bar-wrap { height: 22px; background: var(--vc-paper); position: relative; }
+.vc-row-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--vc-magenta); transition: width 0.4s ease; }
+.vc-row-num { font-family: var(--vc-serif); font-weight: 300; font-size: 24px; line-height: 1; text-align: right; color: var(--vc-black); font-variant-numeric: tabular-nums; }
+.vc-row-unit { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--vc-charcoal); margin-top: 5px; text-align: right; text-transform: uppercase; }
+
+.vc-footer { padding: 14px 24px 18px; border-top: 1px solid var(--vc-cloud); font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
+.vc-footer a { color: var(--vc-black); text-decoration: underline; }
+.vc-wordmark { font-family: var(--vc-sans); font-weight: 800; letter-spacing: 0.04em; color: var(--vc-black); font-size: 11px; text-transform: uppercase; }
+
+body.embed { padding: 0; background: var(--vc-white); }
+body.embed .vc-card { border: 0; max-width: none; }
+
+@media (max-width: 560px) {
+  .vc-row { grid-template-columns: 100px 1fr 90px; gap: 10px; }
+  .vc-row-label { font-size: 12.5px; }
+  .vc-row-num { font-size: 20px; }
+  .vc-title { font-size: 19px; }
+  .vc-header, .vc-chart, .vc-footer { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+</head>
+<body>
+<script>
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  document.body.classList.add('embed');
+  const post = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-borough', height: h }, '*');
+  };
+  window.addEventListener('load', post);
+  window.addEventListener('resize', post);
+  let n = 0; const t = setInterval(() => { post(); if (++n > 12) clearInterval(t); }, 300);
+}
+</script>
+
+<div class="vc-card">
+  <div class="vc-header">
+    <div class="vc-kicker">Sound and the city</div>
+    <h1 class="vc-title">The Bronx and Manhattan call 311 about noise the most, per person</h1>
+    <p class="vc-dek">Manhattan files the most noise complaints overall, but the Bronx is right behind it. Adjust for population and a different picture emerges: <strong>Manhattan and the Bronx are each more than five times as complaint-heavy as Staten Island, per resident.</strong></p>
+  </div>
+
+  <div class="vc-toggle" id="vc-toggle">
+    <button data-view="total" class="is-active">
+      <span class="lbl">Total complaints</span>
+      <span class="sub">January 2025 to April 2026</span>
+    </button>
+    <button data-view="rate">
+      <span class="lbl">Per 1,000 residents</span>
+      <span class="sub">Adjusted for borough population</span>
+    </button>
+  </div>
+
+  <div class="vc-chart" id="vc-chart"></div>
+
+  <div class="vc-footer">
+    Sources: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise"; borough populations from the American Community Survey 2023 one-year estimates. Total counts include only complaints filed at addresses with 10 or more noise complaints in the period (82 percent of the citywide total); per-capita rates are calculated on that same set. Window: January 1, 2025 through May 1, 2026.
+    <div style="margin-top:10px;"><span class="vc-wordmark">Vital City</span> &nbsp;·&nbsp; <a href="../">Interactive map</a></div>
+  </div>
+</div>
+
+<script>
+// Borough populations (American Community Survey 2023 one-year estimates)
+const POP = {
+  Manhattan:       1597451,
+  Brooklyn:        2561225,
+  Queens:          2252196,
+  Bronx:           1356476,
+  'Staten Island':  490687,
+};
+const RAW = [
+  { name: 'Manhattan',     total: 211390 },
+  { name: 'Brooklyn',      total: 201386 },
+  { name: 'Bronx',         total: 175197 },
+  { name: 'Queens',        total: 149563 },
+  { name: 'Staten Island', total:  11890 },
+];
+// Per 1,000 residents over the 16-month window
+const ROWS = RAW.map(r => ({
+  name: r.name,
+  total: r.total,
+  rate: r.total / POP[r.name] * 1000,
+}));
+
+const $chart = document.getElementById('vc-chart');
+let view = 'total';
+
+function render() {
+  const sorted = ROWS.slice().sort((a, b) => view === 'total' ? b.total - a.total : b.rate - a.rate);
+  const max = view === 'total' ? sorted[0].total : sorted[0].rate;
+  const html = sorted.map(r => {
+    const value = view === 'total' ? r.total : r.rate;
+    const display = view === 'total'
+      ? value.toLocaleString()
+      : value.toFixed(0);
+    const unit = view === 'total' ? 'Complaints' : 'Per 1,000';
+    const w = (value / max * 100).toFixed(1);
+    return `
+      <div class="vc-row">
+        <div class="vc-row-label">${r.name}<span class="vc-row-sub">${POP[r.name].toLocaleString()} residents</span></div>
+        <div class="vc-row-bar-wrap"><div class="vc-row-bar" style="width:${w}%"></div></div>
+        <div><div class="vc-row-num">${display}</div><div class="vc-row-unit">${unit}</div></div>
+      </div>
+    `;
+  }).join('');
+  $chart.innerHTML = html;
+}
+render();
+
+document.querySelectorAll('#vc-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#vc-toggle button').forEach(b => b.classList.toggle('is-active', b === btn));
+    view = btn.dataset.view;
+    render();
+  });
+});
+</script>
+</body>
+</html>

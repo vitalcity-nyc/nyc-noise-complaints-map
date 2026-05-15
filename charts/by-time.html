@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>When New York calls 311 about noise / by category and hour</title>
+<meta name="description" content="When New York City 311 noise complaints peak, broken down by complaint category and time of day, January 2025 through April 2026.">
+<link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
+<style>
+@font-face {
+  font-family: 'GascogneTS';
+  src: url('https://vital-city-nyc.github.io/vital-city-design-system/fonts/GascogneTS-Light.ttf') format('truetype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+:root {
+  --vc-black: #050507;
+  --vc-white: #ffffff;
+  --vc-cloud: #dddddd;
+  --vc-paper: #f7f7f4;
+  --vc-charcoal: #707175;
+  --vc-orange: #ff7c53;
+  --vc-magenta: #e7466d;
+  --vc-cerulean: #217ebe;
+  --vc-sans: "halyard-text", "Helvetica Neue", Arial, sans-serif;
+  --vc-serif: "GascogneTS", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
+body { padding: 28px 16px; }
+.vc-card {
+  max-width: 880px; margin: 0 auto;
+  background: var(--vc-white);
+  border: 1px solid var(--vc-black);
+}
+.vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
+.vc-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--vc-charcoal);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.vc-kicker::before { content: ""; display: inline-block; width: 22px; height: 2px; background: var(--vc-orange); }
+.vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
+.vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 64ch; }
+.vc-dek strong { font-weight: 700; }
+
+.vc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+.vc-cell {
+  padding: 16px 20px 18px;
+  border-right: 1px solid var(--vc-cloud);
+  border-bottom: 1px solid var(--vc-cloud);
+}
+.vc-cell:nth-child(2n) { border-right: 0; }
+.vc-cell:nth-last-child(-n+2) { border-bottom: 0; }
+.vc-cell-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; gap: 12px; }
+.vc-cell-name { font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; }
+.vc-cell-total { font-family: var(--vc-serif); font-weight: 300; font-size: 18px; color: var(--vc-black); font-variant-numeric: tabular-nums; }
+.vc-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-items: end; height: 70px; }
+.vc-bar-col { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; height: 100%; position: relative; }
+.vc-bar {
+  width: 100%;
+  background: var(--vc-magenta);
+  min-height: 2px;
+  transition: opacity 0.2s;
+}
+.vc-bar-peak { background: var(--vc-magenta); }
+.vc-bar-other { background: var(--vc-cloud); }
+.vc-bar-pct {
+  position: absolute; top: -16px; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--vc-sans); font-size: 9.5px; font-weight: 700;
+  color: var(--vc-charcoal); font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.vc-bar-pct.is-peak { color: var(--vc-magenta); }
+.vc-bucket-labels {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin-top: 6px;
+  font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--vc-charcoal); font-weight: 700; text-align: center;
+}
+
+.vc-footer { padding: 14px 24px 18px; border-top: 1px solid var(--vc-cloud); font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
+.vc-footer a { color: var(--vc-black); text-decoration: underline; }
+.vc-wordmark { font-family: var(--vc-sans); font-weight: 800; letter-spacing: 0.04em; color: var(--vc-black); font-size: 11px; text-transform: uppercase; }
+
+body.embed { padding: 0; background: var(--vc-white); }
+body.embed .vc-card { border: 0; max-width: none; }
+
+@media (max-width: 640px) {
+  .vc-grid { grid-template-columns: 1fr; }
+  .vc-cell { border-right: 0; border-bottom: 1px solid var(--vc-cloud); }
+  .vc-cell:last-child { border-bottom: 0; }
+  .vc-title { font-size: 19px; }
+  .vc-header, .vc-footer { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+</head>
+<body>
+<script>
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  document.body.classList.add('embed');
+  const post = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-time', height: h }, '*');
+  };
+  window.addEventListener('load', post);
+  window.addEventListener('resize', post);
+  let n = 0; const t = setInterval(() => { post(); if (++n > 12) clearInterval(t); }, 300);
+}
+</script>
+
+<div class="vc-card">
+  <div class="vc-header">
+    <div class="vc-kicker">Sound and the city</div>
+    <h1 class="vc-title">Every kind of noise has its own rhythm</h1>
+    <p class="vc-dek"><strong>Commercial noise</strong> peaks at night. <strong>House of worship</strong> peaks in the morning. <strong>Helicopters</strong> are almost never reported after dark. Each row shows what share of that category's complaints arrive in each block of the day.</p>
+  </div>
+
+  <div class="vc-grid" id="vc-grid"></div>
+
+  <div class="vc-footer">
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Each bar is that category's share of complaints in the local-time block. Time blocks: morning 6 a.m. to noon, afternoon noon to 6 p.m., evening 6 p.m. to midnight, late night midnight to 6 a.m. Window: January 1, 2025 through May 1, 2026.
+    <div style="margin-top:10px;"><span class="vc-wordmark">Vital City</span> &nbsp;·&nbsp; <a href="../">Interactive map</a></div>
+  </div>
+</div>
+
+<script>
+const SUBS = [
+  { name: 'Residential',      total: 451990, buckets: [15, 30, 43, 11] },
+  { name: 'Street, sidewalk', total: 203522, buckets: [12, 35, 45,  8] },
+  { name: 'Commercial',       total:  81093, buckets: [ 8, 26, 60,  6] },
+  { name: 'Vehicle',          total:  56207, buckets: [18, 34, 34, 14] },
+  { name: 'Helicopter',       total:  25244, buckets: [41, 44,  4, 11] },
+  { name: 'House of worship', total:   4066, buckets: [49, 27, 10, 14] },
+];
+const BUCKET_LABELS = ['Morning', 'Afternoon', 'Evening', 'Late night'];
+
+const html = SUBS.map(sub => {
+  const peak = sub.buckets.indexOf(Math.max(...sub.buckets));
+  const bars = sub.buckets.map((pct, i) => {
+    const h = Math.max(2, pct * 1.4);
+    const cls = i === peak ? 'vc-bar-peak' : 'vc-bar-other';
+    const pctCls = i === peak ? 'is-peak' : '';
+    return `
+      <div class="vc-bar-col" style="height:100%;">
+        <div class="vc-bar-pct ${pctCls}">${pct}%</div>
+        <div class="vc-bar ${cls}" style="height:${h}px;"></div>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="vc-cell">
+      <div class="vc-cell-head">
+        <div class="vc-cell-name">${sub.name}</div>
+        <div class="vc-cell-total">${sub.total.toLocaleString()}</div>
+      </div>
+      <div class="vc-bars">${bars}</div>
+      <div class="vc-bucket-labels">${BUCKET_LABELS.map(l => `<div>${l}</div>`).join('')}</div>
+    </div>
+  `;
+}).join('');
+document.getElementById('vc-grid').innerHTML = html;
+</script>
+</body>
+</html>

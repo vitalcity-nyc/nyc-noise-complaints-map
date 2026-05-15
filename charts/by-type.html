@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What New Yorkers complain about / 311 noise complaints</title>
+<meta name="description" content="Share of New York City 311 noise complaints by category, January 2025 through April 2026.">
+<link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
+<style>
+@font-face {
+  font-family: 'GascogneTS';
+  src: url('https://vital-city-nyc.github.io/vital-city-design-system/fonts/GascogneTS-Light.ttf') format('truetype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+:root {
+  --vc-black: #050507;
+  --vc-white: #ffffff;
+  --vc-cloud: #dddddd;
+  --vc-paper: #f7f7f4;
+  --vc-charcoal: #707175;
+  --vc-orange: #ff7c53;
+  --vc-magenta: #e7466d;
+  --vc-cerulean: #217ebe;
+  --vc-sans: "halyard-text", "Helvetica Neue", Arial, sans-serif;
+  --vc-serif: "GascogneTS", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
+body { padding: 28px 16px; }
+.vc-card {
+  max-width: 720px; margin: 0 auto;
+  background: var(--vc-white);
+  border: 1px solid var(--vc-black);
+}
+.vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
+.vc-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--vc-charcoal);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.vc-kicker::before { content: ""; display: inline-block; width: 22px; height: 2px; background: var(--vc-orange); }
+.vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
+.vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 56ch; }
+.vc-dek strong { font-weight: 700; }
+
+.vc-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--vc-paper); border-bottom: 1px solid var(--vc-black); }
+.vc-stat { padding: 14px 18px 14px; border-right: 1px solid var(--vc-cloud); }
+.vc-stat:last-child { border-right: 0; }
+.vc-stat-num { display: block; font-family: var(--vc-serif); font-weight: 300; font-size: 28px; line-height: 1; color: var(--vc-black); margin-bottom: 6px; }
+.vc-stat-lbl { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-charcoal); }
+
+.vc-chart { padding: 22px 24px 18px; }
+.vc-row { display: grid; grid-template-columns: 168px 1fr 80px; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--vc-cloud); }
+.vc-row:last-child { border-bottom: 0; }
+.vc-row-label { font-size: 13px; font-weight: 600; color: var(--vc-black); }
+.vc-row-bar-wrap { height: 18px; background: var(--vc-paper); position: relative; }
+.vc-row-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--vc-magenta); }
+.vc-row-num { font-family: var(--vc-serif); font-weight: 300; font-size: 20px; line-height: 1; text-align: right; color: var(--vc-black); font-variant-numeric: tabular-nums; }
+.vc-row-pct { display: block; font-family: var(--vc-sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--vc-charcoal); margin-top: 4px; text-align: right; }
+
+.vc-footer { padding: 14px 24px 18px; border-top: 1px solid var(--vc-cloud); font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
+.vc-footer a { color: var(--vc-black); text-decoration: underline; }
+.vc-wordmark { font-family: var(--vc-sans); font-weight: 800; letter-spacing: 0.04em; color: var(--vc-black); font-size: 11px; text-transform: uppercase; }
+
+body.embed { padding: 0; background: var(--vc-white); }
+body.embed .vc-card { border: 0; max-width: none; }
+
+@media (max-width: 600px) {
+  .vc-row { grid-template-columns: 130px 1fr 64px; gap: 8px; }
+  .vc-row-label { font-size: 12px; }
+  .vc-row-num { font-size: 17px; }
+  .vc-title { font-size: 19px; }
+  .vc-stat-num { font-size: 22px; }
+  .vc-stats { grid-template-columns: repeat(3, 1fr); }
+  .vc-header, .vc-chart, .vc-footer { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+</head>
+<body>
+<script>
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  document.body.classList.add('embed');
+  const post = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-type', height: h }, '*');
+  };
+  window.addEventListener('load', post);
+  window.addEventListener('resize', post);
+  let n = 0; const t = setInterval(() => { post(); if (++n > 12) clearInterval(t); }, 300);
+}
+</script>
+
+<div class="vc-card">
+  <div class="vc-header">
+    <div class="vc-kicker">Sound and the city</div>
+    <h1 class="vc-title">What New Yorkers complain about when they call 311 about noise</h1>
+    <p class="vc-dek"><strong>Residential noise</strong> drives half of every 311 noise complaint citywide. Street and sidewalk noise come second. Together they account for more than seven of every ten calls.</p>
+  </div>
+
+  <div class="vc-stats">
+    <div class="vc-stat"><span class="vc-stat-num">907,833</span><span class="vc-stat-lbl">Total complaints</span></div>
+    <div class="vc-stat"><span class="vc-stat-num">16 months</span><span class="vc-stat-lbl">Jan 2025 to Apr 2026</span></div>
+    <div class="vc-stat"><span class="vc-stat-num">1,790</span><span class="vc-stat-lbl">Average per day</span></div>
+  </div>
+
+  <div class="vc-chart" id="vc-chart"></div>
+
+  <div class="vc-footer">
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Counts cover service requests created between January 1, 2025 and May 1, 2026. The category "Noise" without a suffix is the generic 311 bucket used when a caller does not specify a source.
+    <div style="margin-top:10px;"><span class="vc-wordmark">Vital City</span> &nbsp;·&nbsp; <a href="../">Interactive map</a></div>
+  </div>
+</div>
+
+<script>
+const DATA = [
+  { name: 'Residential',      n: 451990, pct: 49.8 },
+  { name: 'Street, sidewalk', n: 203522, pct: 22.4 },
+  { name: 'Commercial',       n:  81093, pct:  8.9 },
+  { name: 'Unspecified',      n:  74352, pct:  8.2 },
+  { name: 'Vehicle',          n:  56207, pct:  6.2 },
+  { name: 'Helicopter',       n:  25244, pct:  2.8 },
+  { name: 'Park',             n:  11359, pct:  1.3 },
+  { name: 'House of worship', n:   4066, pct:  0.4 },
+];
+const maxPct = DATA[0].pct;
+const html = DATA.map(d => `
+  <div class="vc-row">
+    <div class="vc-row-label">${d.name}</div>
+    <div class="vc-row-bar-wrap"><div class="vc-row-bar" style="width:${(d.pct / maxPct * 100).toFixed(1)}%"></div></div>
+    <div><div class="vc-row-num">${d.n.toLocaleString()}</div><div class="vc-row-pct">${d.pct.toFixed(1)}%</div></div>
+  </div>
+`).join('');
+document.getElementById('vc-chart').innerHTML = html;
+</script>
+</body>
+</html>
