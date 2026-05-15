@@ -21,6 +21,11 @@
   --vc-orange: #ff7c53;
   --vc-magenta: #e7466d;
   --vc-cerulean: #217ebe;
+  --vc-indigo: #394882;
+  --vc-chartreuse: #dde44c;
+  --vc-rose: #cea9be;
+  --vc-green: #57aa4a;
+  --vc-periwinkle: #9b9fbc;
   --vc-sans: "halyard-text", "Helvetica Neue", Arial, sans-serif;
   --vc-serif: "GascogneTS", Georgia, serif;
 }
@@ -28,7 +33,7 @@
 html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
 body { padding: 28px 16px; }
 .vc-card {
-  max-width: 720px; margin: 0 auto;
+  max-width: 760px; margin: 0 auto;
   background: var(--vc-white);
   border: 1px solid var(--vc-black);
 }
@@ -43,35 +48,68 @@ body { padding: 28px 16px; }
 .vc-dek strong { font-weight: 700; }
 
 .vc-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--vc-paper); border-bottom: 1px solid var(--vc-black); }
-.vc-stat { padding: 14px 18px 14px; border-right: 1px solid var(--vc-cloud); }
+.vc-stat { padding: 12px 18px 14px; border-right: 1px solid var(--vc-cloud); }
 .vc-stat:last-child { border-right: 0; }
-.vc-stat-num { display: block; font-family: var(--vc-serif); font-weight: 300; font-size: 28px; line-height: 1; color: var(--vc-black); margin-bottom: 6px; }
-.vc-stat-lbl { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-charcoal); }
+.vc-stat-num { display: block; font-family: var(--vc-serif); font-weight: 300; font-size: 24px; line-height: 1; color: var(--vc-black); margin-bottom: 5px; }
+.vc-stat-lbl { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-charcoal); }
 
-.vc-chart { padding: 22px 24px 18px; }
-.vc-row { display: grid; grid-template-columns: 168px 1fr 80px; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--vc-cloud); }
-.vc-row:last-child { border-bottom: 0; }
-.vc-row-label { font-size: 13px; font-weight: 600; color: var(--vc-black); }
-.vc-row-bar-wrap { height: 18px; background: var(--vc-paper); position: relative; }
-.vc-row-bar { position: absolute; left: 0; top: 0; bottom: 0; background: var(--vc-magenta); }
-.vc-row-num { font-family: var(--vc-serif); font-weight: 300; font-size: 20px; line-height: 1; text-align: right; color: var(--vc-black); font-variant-numeric: tabular-nums; }
-.vc-row-pct { display: block; font-family: var(--vc-sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--vc-charcoal); margin-top: 4px; text-align: right; }
+.vc-body { display: grid; grid-template-columns: 280px 1fr; gap: 0; }
+.vc-donut-wrap {
+  padding: 22px 18px;
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--vc-cloud);
+}
+.vc-donut { width: 100%; max-width: 240px; height: auto; display: block; }
+.vc-donut .slice { transition: opacity 0.18s; cursor: pointer; }
+.vc-donut .slice:hover { opacity: 0.78; }
+.vc-donut-center {
+  fill: var(--vc-black);
+  font-family: var(--vc-serif);
+  font-weight: 300;
+  font-size: 32px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+.vc-donut-center-lbl {
+  fill: var(--vc-charcoal);
+  font-family: var(--vc-sans);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.vc-legend { padding: 18px 22px 18px; }
+.vc-legend-item {
+  display: grid;
+  grid-template-columns: 14px 1fr 70px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--vc-cloud);
+  cursor: pointer;
+}
+.vc-legend-item:last-child { border-bottom: 0; }
+.vc-legend-item:hover { background: var(--vc-paper); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+.vc-legend-sw { width: 14px; height: 14px; flex: 0 0 14px; }
+.vc-legend-name { font-size: 12.5px; font-weight: 600; color: var(--vc-black); }
+.vc-legend-num { font-family: var(--vc-serif); font-weight: 300; font-size: 16px; text-align: right; color: var(--vc-black); font-variant-numeric: tabular-nums; line-height: 1; }
+.vc-legend-pct { display: block; font-family: var(--vc-sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--vc-charcoal); margin-top: 3px; text-align: right; }
 
 .vc-footer { padding: 14px 24px 18px; border-top: 1px solid var(--vc-cloud); font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
 .vc-footer a { color: var(--vc-black); text-decoration: underline; }
-.vc-wordmark { font-family: var(--vc-sans); font-weight: 800; letter-spacing: 0.04em; color: var(--vc-black); font-size: 11px; text-transform: uppercase; }
 
 body.embed { padding: 0; background: var(--vc-white); }
 body.embed .vc-card { border: 0; max-width: none; }
 
-@media (max-width: 600px) {
-  .vc-row { grid-template-columns: 130px 1fr 64px; gap: 8px; }
-  .vc-row-label { font-size: 12px; }
-  .vc-row-num { font-size: 17px; }
+@media (max-width: 620px) {
+  .vc-body { grid-template-columns: 1fr; }
+  .vc-donut-wrap { border-right: 0; border-bottom: 1px solid var(--vc-cloud); padding: 18px; }
+  .vc-donut { max-width: 200px; }
   .vc-title { font-size: 19px; }
-  .vc-stat-num { font-size: 22px; }
-  .vc-stats { grid-template-columns: repeat(3, 1fr); }
-  .vc-header, .vc-chart, .vc-footer { padding-left: 18px; padding-right: 18px; }
+  .vc-header, .vc-footer { padding-left: 18px; padding-right: 18px; }
+  .vc-stat-num { font-size: 20px; }
 }
 </style>
 </head>
@@ -92,8 +130,8 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
 <div class="vc-card">
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
-    <h1 class="vc-title">What New Yorkers complain about when they call 311 about noise</h1>
-    <p class="vc-dek"><strong>Residential noise</strong> drives half of every 311 noise complaint citywide. Street and sidewalk noise come second. Together they account for more than seven of every ten calls.</p>
+    <h1 class="vc-title">Half of all 311 noise calls are about your neighbors</h1>
+    <p class="vc-dek"><strong>Residential noise</strong> alone drives half of every 311 noise complaint citywide. <strong>Helicopters</strong>, by contrast, are 3 percent. Street and sidewalk noise come in second at 22 percent.</p>
   </div>
 
   <div class="vc-stats">
@@ -102,34 +140,109 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
     <div class="vc-stat"><span class="vc-stat-num">1,790</span><span class="vc-stat-lbl">Average per day</span></div>
   </div>
 
-  <div class="vc-chart" id="vc-chart"></div>
+  <div class="vc-body">
+    <div class="vc-donut-wrap">
+      <svg class="vc-donut" viewBox="0 0 200 200" id="vc-donut" aria-label="Donut chart of New York City 311 noise complaints by category"></svg>
+    </div>
+    <div class="vc-legend" id="vc-legend"></div>
+  </div>
 
   <div class="vc-footer">
-    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Counts cover service requests created between January 1, 2025 and May 1, 2026. The category "Noise" without a suffix is the generic 311 bucket used when a caller does not specify a source.
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Counts cover service requests created between January 1, 2025 and May 1, 2026. The category "Unspecified" is the generic 311 bucket used when a caller does not specify a source.
     <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
   </div>
 </div>
 
 <script>
 const DATA = [
-  { name: 'Residential',      n: 451990, pct: 49.8 },
-  { name: 'Street, sidewalk', n: 203522, pct: 22.4 },
-  { name: 'Commercial',       n:  81093, pct:  8.9 },
-  { name: 'Unspecified',      n:  74352, pct:  8.2 },
-  { name: 'Vehicle',          n:  56207, pct:  6.2 },
-  { name: 'Helicopter',       n:  25244, pct:  2.8 },
-  { name: 'Park',             n:  11359, pct:  1.3 },
-  { name: 'House of worship', n:   4066, pct:  0.4 },
+  { name: 'Residential',      n: 451990, pct: 49.8, color: '#e7466d' },
+  { name: 'Street, sidewalk', n: 203522, pct: 22.4, color: '#217ebe' },
+  { name: 'Commercial',       n:  81093, pct:  8.9, color: '#ff7c53' },
+  { name: 'Unspecified',      n:  74352, pct:  8.2, color: '#9b9fbc' },
+  { name: 'Vehicle',          n:  56207, pct:  6.2, color: '#394882' },
+  { name: 'Helicopter',       n:  25244, pct:  2.8, color: '#57aa4a' },
+  { name: 'Park',             n:  11359, pct:  1.3, color: '#dde44c' },
+  { name: 'House of worship', n:   4066, pct:  0.4, color: '#cea9be' },
 ];
-const maxPct = DATA[0].pct;
-const html = DATA.map(d => `
-  <div class="vc-row">
-    <div class="vc-row-label">${d.name}</div>
-    <div class="vc-row-bar-wrap"><div class="vc-row-bar" style="width:${(d.pct / maxPct * 100).toFixed(1)}%"></div></div>
-    <div><div class="vc-row-num">${d.n.toLocaleString()}</div><div class="vc-row-pct">${d.pct.toFixed(1)}%</div></div>
+
+// SVG donut
+const svg = document.getElementById('vc-donut');
+const cx = 100, cy = 100, rOut = 92, rIn = 56;
+const total = DATA.reduce((s, d) => s + d.n, 0);
+let a = -Math.PI / 2;
+
+function polar(r, angle) { return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)]; }
+
+DATA.forEach((d, i) => {
+  const frac = d.n / total;
+  const a2 = a + frac * Math.PI * 2;
+  const large = frac > 0.5 ? 1 : 0;
+  const [x0, y0] = polar(rOut, a);
+  const [x1, y1] = polar(rOut, a2);
+  const [x2, y2] = polar(rIn, a2);
+  const [x3, y3] = polar(rIn, a);
+  const path = [
+    `M ${x0.toFixed(2)} ${y0.toFixed(2)}`,
+    `A ${rOut} ${rOut} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`,
+    `L ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+    `A ${rIn} ${rIn} 0 ${large} 0 ${x3.toFixed(2)} ${y3.toFixed(2)}`,
+    'Z',
+  ].join(' ');
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  el.setAttribute('d', path);
+  el.setAttribute('fill', d.color);
+  el.setAttribute('stroke', '#ffffff');
+  el.setAttribute('stroke-width', '1.5');
+  el.setAttribute('class', 'slice');
+  el.setAttribute('data-idx', String(i));
+  el.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'title'))
+    .textContent = `${d.name}: ${d.n.toLocaleString()} (${d.pct.toFixed(1)}%)`;
+  svg.appendChild(el);
+  a = a2;
+});
+
+// Center label
+const centerLbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+centerLbl.setAttribute('class', 'vc-donut-center');
+centerLbl.setAttribute('x', cx);
+centerLbl.setAttribute('y', cy - 4);
+centerLbl.textContent = '907,833';
+svg.appendChild(centerLbl);
+
+const centerSub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+centerSub.setAttribute('class', 'vc-donut-center-lbl');
+centerSub.setAttribute('x', cx);
+centerSub.setAttribute('y', cy + 16);
+centerSub.textContent = 'Complaints';
+svg.appendChild(centerSub);
+
+// Legend
+const legend = document.getElementById('vc-legend');
+legend.innerHTML = DATA.map((d, i) => `
+  <div class="vc-legend-item" data-idx="${i}">
+    <span class="vc-legend-sw" style="background:${d.color};"></span>
+    <span class="vc-legend-name">${d.name}</span>
+    <div><div class="vc-legend-num">${d.n.toLocaleString()}</div><div class="vc-legend-pct">${d.pct.toFixed(1)}%</div></div>
   </div>
 `).join('');
-document.getElementById('vc-chart').innerHTML = html;
+
+// Hover-link donut <-> legend
+function highlight(idx) {
+  svg.querySelectorAll('.slice').forEach(s => {
+    s.style.opacity = (idx === null || +s.dataset.idx === idx) ? '1' : '0.32';
+  });
+  legend.querySelectorAll('.vc-legend-item').forEach(li => {
+    li.style.opacity = (idx === null || +li.dataset.idx === idx) ? '1' : '0.5';
+  });
+}
+svg.querySelectorAll('.slice').forEach(s => {
+  s.addEventListener('mouseenter', () => highlight(+s.dataset.idx));
+  s.addEventListener('mouseleave', () => highlight(null));
+});
+legend.querySelectorAll('.vc-legend-item').forEach(li => {
+  li.addEventListener('mouseenter', () => highlight(+li.dataset.idx));
+  li.addEventListener('mouseleave', () => highlight(null));
+});
 </script>
 </body>
 </html>
