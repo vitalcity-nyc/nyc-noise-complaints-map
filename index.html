@@ -220,6 +220,15 @@
   outline: none;
 }
 .ncm-select:focus { border-color: var(--ncm-orange); }
+.ncm-type-def {
+  margin-top: 7px;
+  font-family: var(--ncm-font-sans);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ncm-charcoal);
+  display: none;
+}
+.ncm-type-def.is-visible { display: block; }
 
 .ncm-slider-wrap { display: flex; align-items: center; gap: 10px; }
 .ncm-slider-wrap input[type=range] { flex: 1; accent-color: var(--ncm-orange); }
@@ -422,6 +431,7 @@
         <select class="ncm-select" id="ncm-subtype">
           <option value="all">All types</option>
         </select>
+        <div class="ncm-type-def" id="ncm-type-def"></div>
       </div>
 
       <div class="ncm-section">
@@ -1034,14 +1044,43 @@
 
     await loadAll();
 
+    // Display labels + hover/definition text for each 311 complaint_type.
+    // Keys are the literal complaint_type strings (used as data lookup keys);
+    // only the shown label and tooltip change. The bare "Noise" type is the
+    // DEP-routed category (construction, equipment, alarms, animals) — it reads
+    // like a catch-all next to the "Noise - X" types but is a distinct peer.
+    const TYPE_LABELS = {
+      'Noise': 'Noise – Construction/equipment (DEP)',
+    };
+    const TYPE_DEFS = {
+      'all': '',
+      'Noise': 'Noise routed to the Dept. of Environmental Protection (DEP) rather than the NYPD — construction before/after hours, construction and lawn equipment, jackhammering, HVAC/ventilation, alarms, manufacturing, barking dogs and ice-cream trucks. It is a distinct category, not an "other/unspecified" bucket.',
+      'Noise - Residential': 'Noise from homes and apartments — loud music, parties, TV. Routed to the NYPD.',
+      'Noise - Street/Sidewalk': 'Noise in public space — people, music or loudspeakers on the street or sidewalk. Routed to the NYPD.',
+      'Noise - Commercial': 'Noise from businesses — bars, clubs, restaurants, stores. Routed to the NYPD.',
+      'Noise - Vehicle': 'Noise from vehicles — engines, horns, car alarms, modified exhausts and sound systems. Routed to the NYPD.',
+      'Noise - Helicopter': 'Helicopter and other aircraft noise.',
+      'Noise - Park': 'Noise originating in a park.',
+      'Noise - House of Worship': 'Noise from a house of worship.',
+    };
+
     // Populate subtype dropdown from meta
     const sel = $('ncm-subtype');
+    const typeDefEl = $('ncm-type-def');
+    sel.querySelector('option[value="all"]').title = 'Every noise complaint type combined.';
     for (const s of STATE.meta.subtypes) {
       const opt = document.createElement('option');
       opt.value = s;
-      opt.textContent = s;
+      opt.textContent = TYPE_LABELS[s] || s;
+      if (TYPE_DEFS[s]) opt.title = TYPE_DEFS[s];
       sel.appendChild(opt);
     }
+    function updateTypeDef() {
+      const def = TYPE_DEFS[sel.value] || '';
+      typeDefEl.textContent = def;
+      typeDefEl.classList.toggle('is-visible', !!def);
+    }
+    updateTypeDef();
 
     // Refresh date
     if (STATE.meta.generated) {
@@ -1079,6 +1118,7 @@
     }
     sel.addEventListener('change', () => {
       STATE.subtype = sel.value;
+      updateTypeDef();
       rerender();
     });
 

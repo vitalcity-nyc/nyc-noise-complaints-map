@@ -22,20 +22,20 @@ The exact `until` cutoff for the most recent build is recorded in `data/meta.jso
 
 ## Noise types (subtypes)
 
-We use the dataset's own `complaint_type` values, unchanged. As of the current build:
+We use the dataset's own `complaint_type` values unchanged for filtering and counting. Each 311 service request carries exactly one `complaint_type`, so the categories below do not overlap and their counts sum to the total. As of the current build:
 
-| complaint_type | Why it shows up |
-| --- | --- |
-| Noise - Residential | Loud music/parties, banging, talking, TV in apartments — the largest category by far. |
-| Noise - Street/Sidewalk | Loud music or talking on sidewalks, idle car stereos, street fairs. |
-| Noise - Commercial | Bars, clubs, restaurants, retail. |
-| Noise (general) | Default 311 noise bucket when no specific subtype was selected. |
-| Noise - Vehicle | Car alarms, modified exhausts, motorcycles. |
-| Noise - Helicopter | Helicopter overflight complaints. **See caveat below.** |
-| Noise - Park | Music, parties, gatherings in parks. |
-| Noise - House of Worship | Bells, amplified worship, etc. |
+| complaint_type | Panel label | Why it shows up |
+| --- | --- | --- |
+| Noise - Residential | Noise - Residential | Loud music/parties, banging, talking, TV in apartments — the largest category by far. Routed to the NYPD. |
+| Noise - Street/Sidewalk | Noise - Street/Sidewalk | Loud music or talking on sidewalks, idle car stereos, street fairs. Routed to the NYPD. |
+| Noise - Commercial | Noise - Commercial | Bars, clubs, restaurants, retail. Routed to the NYPD. |
+| Noise | Noise – Construction/equipment (DEP) | The category routed to the Dept. of Environmental Protection (DEP) rather than the NYPD. **Not** an "other/unspecified" bucket — its descriptors are construction before/after hours, construction and lawn equipment, jackhammering, HVAC/ventilation, alarms, manufacturing, barking dogs and ice-cream trucks. (Only ~38 records carry the genuine "Other Noise Sources" descriptor.) Relabeled in the panel because a bare "Noise" entry reads like a parent or catch-all next to the "Noise - X" types when it is a distinct peer. |
+| Noise - Vehicle | Noise - Vehicle | Car alarms, modified exhausts, motorcycles. Routed to the NYPD. |
+| Noise - Helicopter | Noise - Helicopter | Helicopter overflight complaints. **See caveat below.** |
+| Noise - Park | Noise - Park | Music, parties, gatherings in parks. |
+| Noise - House of Worship | Noise - House of Worship | Bells, amplified worship, etc. |
 
-The "Noise type" filter in the panel switches between these.
+The "Noise type" filter in the panel switches between these. Only the displayed label differs from the raw `complaint_type`; the bare "Noise" type is shown as "Noise – Construction/equipment (DEP)" and each option carries a hover definition.
 
 ## Aggregation
 
