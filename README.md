@@ -39,7 +39,27 @@ Run `python3 scripts/build_data.py --dry-run` to see record counts by complaint 
 
 ## Embedding
 
-The page is structured so that the map UI sits inside `<div class="ncm-root">`, with all CSS scoped under `.ncm-root`. To embed in another site, copy the `.ncm-root` block (HTML + scoped CSS + script) into your page, point the data fetches at this repo's GitHub Pages URL, and size the container however you want.
+Add `?embed=1` to the map URL and it renders as a self-contained embed: no page chrome, a fixed-height shell (600px, 620px on phones), and a **Full screen** button in the top-right that expands the map to fill the screen. Paste this into a Ghost HTML card:
+
+```html
+<iframe id="noise-map-frame" src="https://vitalcity-nyc.github.io/nyc-noise-complaints-map/?embed=1"
+        title="Where New York calls 311 about noise" allow="fullscreen" loading="lazy"
+        style="width:100%;height:600px;border:0;display:block;"></iframe>
+<script>
+window.addEventListener('message', function (e) {
+  var d = e.data;
+  if (d && d.type === 'vc-embed-height' && d.id === 'noise-map') {
+    document.getElementById('noise-map-frame').style.height = d.height + 'px';
+  }
+});
+</script>
+```
+
+`allow="fullscreen"` is required — without it browsers block the Fullscreen API inside a cross-origin iframe. If it is missing, the button falls back to opening the standalone map in a new tab, so the click still does something. The embed posts its height to the parent (`vc-embed-height`), which is what the listener above uses so the iframe resizes itself on phones.
+
+The map framing adapts to the container: the panel is a left overlay on wide screens and a bottom sheet under 720px, and the city is fitted to whatever space is left.
+
+Alternatively, the map UI sits inside `<div class="ncm-root">` with all CSS scoped under `.ncm-root`, so the block can be copied wholesale into another page with the data fetches pointed at this repo's Pages URL.
 
 ## Methodology
 

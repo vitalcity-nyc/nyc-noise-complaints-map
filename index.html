@@ -364,8 +364,17 @@
 .ncm-root.is-embed .ncm-panel {
   max-height: calc(100% - 36px);
 }
+/* A Ghost content column is ~740px. At that width the full 348px panel leaves the
+   map a sliver, so the panel narrows and the map keeps room to show the city. */
+@media (min-width: 721px) and (max-width: 900px) {
+  .ncm-root.is-embed .ncm-panel { width: 296px; }
+  .ncm-root.is-embed .ncm-title { font-size: 19px; }
+}
 @media (max-width: 720px) {
-  .ncm-root.is-embed { height: 560px; }
+  /* On a phone the panel is a bottom sheet. Cap it, or the embed rule above
+     (max-height: 100% - 36px) leaves no map above it. */
+  .ncm-root.is-embed { height: 620px; }
+  .ncm-root.is-embed .ncm-panel { max-height: 52%; }
 }
 
 @media (max-width: 720px) {
@@ -444,7 +453,7 @@
           <button data-bucket="3">Late night</button>
         </div>
         <div class="ncm-bucket-chart" id="ncm-bucket-chart" style="margin-top:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:end;height:54px;"></div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
+        <div id="ncm-bucket-labels" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ncm-charcoal);text-align:center;margin-top:4px;font-weight:600;">
           <div></div><div>6a to 12p</div><div>12p to 6p</div><div>6p to 12a</div><div>12a to 6a</div>
         </div>
       </div>
@@ -539,28 +548,63 @@
     ROOT.classList.remove('ncm-fullscreen');
     ROOT.classList.add('is-embed');
     document.body.style.background = '#ffffff';
+    // Tell the host page how tall we are, so a Ghost embed can size its iframe
+    // instead of hardcoding a height that goes wrong on mobile.
+    const postHeight = () => {
+      const h = Math.ceil(ROOT.getBoundingClientRect().height);
+      parent.postMessage({ type: 'vc-embed-height', id: 'noise-map', height: h }, '*');
+    };
+    window.addEventListener('load', postHeight);
+    window.addEventListener('resize', postHeight);
+    let n = 0;
+    const t = setInterval(() => { postHeight(); if (++n > 12) clearInterval(t); }, 300);
   }
 
   // Fullscreen toggle: requests fullscreen on the mount node so the map fills the screen.
   const fsBtn = $('ncm-fs-btn');
   const fsTarget = ROOT;
   function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
-  function setFsLabel() { fsBtn.textContent = isFs() ? 'Close ✕' : 'Full screen ↗'; }
+  // Inside a cross-origin iframe the Fullscreen API only works if the host page's
+  // iframe carries allow="fullscreen". If it doesn't (or the browser blocks it),
+  // fall back to opening the standalone map in a new tab so the expand click still
+  // does something useful in a Ghost post.
+  const FS_ALLOWED = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const STANDALONE_URL = location.href.split('?')[0];
+  function setFsLabel() {
+    if (!FS_ALLOWED) { fsBtn.textContent = 'Open full map ↗'; return; }
+    fsBtn.textContent = isFs() ? 'Close ✕' : 'Full screen ↗';
+  }
   fsBtn.addEventListener('click', () => {
+    if (!FS_ALLOWED) {
+      window.open(STANDALONE_URL, '_blank', 'noopener');
+      return;
+    }
     if (isFs()) {
       (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     } else {
       const req = fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen;
-      if (req) req.call(fsTarget);
+      if (req) {
+        const p = req.call(fsTarget);
+        if (p && p.catch) p.catch(() => window.open(STANDALONE_URL, '_blank', 'noopener'));
+      } else {
+        window.open(STANDALONE_URL, '_blank', 'noopener');
+      }
     }
   });
   document.addEventListener('fullscreenchange', () => {
     ROOT.classList.toggle('is-fs', isFs());
     setFsLabel();
-    // Leaflet needs a nudge after the container resizes
-    if (STATE.map) setTimeout(() => STATE.map.invalidateSize(), 60);
+    // Leaflet needs a nudge after the container resizes, and the city should be
+    // re-framed to the new shape rather than staying where the old one left it.
+    if (STATE.map) setTimeout(frameCity, 80);
   });
   setFsLabel();
+
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (STATE.map) STATE.map.invalidateSize(); }, 150);
+  });
 
   const STATE = {
     mode: 'full',          // full | saturday
@@ -582,6 +626,27 @@
     saturdayLayer: null,
     violationsLayer: null,
   };
+
+  // Short display label for a complaint_type, used in legends, popups and the top
+  // list. The bare "Noise" type is the DEP-routed construction/equipment category,
+  // not an "other" bucket, so it gets a name rather than being left as "Noise".
+  const SHORT_LABELS = {
+    'Noise': 'Construction/equipment',
+    'Noise - Residential': 'Residential',
+    'Noise - Street/Sidewalk': 'Street/sidewalk',
+    'Noise - Commercial': 'Commercial',
+    'Noise - Vehicle': 'Vehicle',
+    'Noise - Helicopter': 'Helicopter',
+    'Noise - Park': 'Park',
+    'Noise - House of Worship': 'House of worship',
+  };
+  function shortType(s) {
+    if (SHORT_LABELS[s]) return SHORT_LABELS[s];
+    return (s || '').replace(/^Noise\s*[-–]?\s*/, '') || 'Noise';
+  }
+
+  const BUCKET_RANGES = ['6a to 12p', '12p to 6p', '6p to 12a', '12a to 6a'];
+  const SAT_MODE = () => STATE.mode === 'saturday';
 
   const VIO_COLORS = {
     vehicle_noise_camera: '#217ebe',
@@ -784,7 +849,7 @@
           <div class="ncm-pop-kicker">Hex cell · ${periodLabel(STATE.period)}</div>
           <div class="ncm-pop-big-label">Complaints in this cell</div>
           <div class="ncm-pop-big">${v.toLocaleString()}</div>
-          ${STATE.subtype === 'all' && top3.length ? `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#707175;margin-top:10px;font-weight:600;">Top types</div>${top3.map(([s, n]) => `<div class='ncm-pop-bar-row'><span class='lbl'>${s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${Math.round(100 * n / tot)}%'></span></div>`).join('')}` : ''}
+          ${STATE.subtype === 'all' && top3.length ? `<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#707175;margin-top:10px;font-weight:600;">Top types</div>${top3.map(([s, n]) => `<div class='ncm-pop-bar-row'><span class='lbl'>${shortType(s)}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${Math.round(100 * n / tot)}%'></span></div>`).join('')}` : ''}
         </div>
       `, { className: 'ncm-popup' });
       layer.addLayer(poly);
@@ -838,7 +903,7 @@
       const subEntries = Object.entries(loc.subs).sort((a, b) => b[1] - a[1]);
       const subRows = subEntries.slice(0, 5).map(([s, n]) => {
         const w = Math.round(100 * n / loc.n);
-        return `<div class='ncm-pop-bar-row'><span class='lbl'>${s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${w}%'></span></div>`;
+        return `<div class='ncm-pop-bar-row'><span class='lbl'>${shortType(s)}</span><span class='num'>${n.toLocaleString()}</span></div><div class='ncm-pop-bar'><span style='width:${w}%'></span></div>`;
       }).join('');
 
       m.bindPopup(`
@@ -848,7 +913,7 @@
           <div class="ncm-pop-meta">${loc.boro || ''}</div>
           <div style="display:flex;gap:18px;align-items:flex-end;margin-bottom:8px;">
             <div>
-              <div class="ncm-pop-big-label">${STATE.subtype === 'all' ? 'Total complaints' : STATE.subtype.replace(/^Noise[\\s\\-]*/, '')}</div>
+              <div class="ncm-pop-big-label">${STATE.subtype === 'all' ? 'Total complaints' : shortType(STATE.subtype)}</div>
               <div class="ncm-pop-big">${subN.toLocaleString()}</div>
             </div>
             ${STATE.subtype !== 'all' ? `<div style='font-size:11px;color:#707175;padding-bottom:4px;'>of ${loc.n.toLocaleString()} total</div>` : ''}
@@ -926,6 +991,7 @@
       $('ncm-stat-chronic').textContent = rendered.toLocaleString();
       $('ncm-stat-chronic-sub').textContent = 'Dots shown';
       renderSaturdayLegend();
+      renderBucketChart();
       return;
     }
     const data = STATE.hexData[STATE.period];
@@ -977,11 +1043,23 @@
         }
       }
     }
-    const max = Math.max(1, ...counts);
+    // A Saturday night runs 6 p.m. to 6 a.m., so only the evening and late-night
+    // blocks exist in that mode — morning and afternoon are structurally empty and
+    // are dropped from the control rather than shown as zeroes.
+    const idxs = SAT_MODE() ? [2, 3] : [0, 1, 2, 3];
+    const max = Math.max(1, ...idxs.map(i => counts[i]));
     const sel = STATE.bucket;
+    const cols = `repeat(${idxs.length + 1}, 1fr)`;
+    el.style.gridTemplateColumns = cols;
+    const labelRow = $('ncm-bucket-labels');
+    if (labelRow) {
+      labelRow.style.gridTemplateColumns = cols;
+      labelRow.innerHTML = ['<div></div>'].concat(idxs.map(i => `<div>${BUCKET_RANGES[i]}</div>`)).join('');
+    }
     // First grid column (under the "All" button) is intentionally empty so the
-    // four bars line up beneath Morning / Afternoon / Evening / Late night.
-    const cells = ['<div></div>'].concat(counts.map((c, i) => {
+    // bars line up beneath the time-block buttons.
+    const cells = ['<div></div>'].concat(idxs.map(i => {
+      const c = counts[i];
       const h = Math.max(2, Math.round(54 * c / max));
       const isSel = sel === 'all' || sel === String(i);
       const fill = isSel ? '#050507' : '#dddddd';
@@ -1016,10 +1094,34 @@
     el.innerHTML = items.map(x => `
       <div class="ncm-toplist-item" style="cursor:default;">
         <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${subColor(x.i)};"></span>
-        <span class="ncm-toplist-addr">${x.s.replace(/^Noise[\\s\\-]*/, '') || 'Noise'}</span>
+        <span class="ncm-toplist-addr">${shortType(x.s)}</span>
         <span class="ncm-toplist-count" style="color:var(--ncm-black);">${x.n.toLocaleString()}</span>
       </div>
     `).join('');
+  }
+
+  // Bounding box of the five boroughs.
+  const CITY_BOUNDS = L.latLngBounds([40.495, -74.26], [40.92, -73.70]);
+  // Fit the city into whatever space the panel leaves. The panel is a left overlay
+  // on wide screens and a bottom sheet under 720px, so we measure it rather than
+  // assuming: a fixed center/zoom put Manhattan behind the panel in an embed.
+  function frameCity() {
+    if (!STATE.map) return;
+    STATE.map.invalidateSize();
+    const size = STATE.map.getSize();
+    const panel = document.querySelector('.ncm-panel');
+    let padLeft = 16, padBottom = 16;
+    if (panel) {
+      const r = panel.getBoundingClientRect();
+      const isBottomSheet = r.width > size.x * 0.8;
+      if (isBottomSheet) padBottom = Math.min(r.height + 16, size.y * 0.62);
+      else padLeft = Math.min(r.width + 24, size.x * 0.5);
+    }
+    STATE.map.fitBounds(CITY_BOUNDS, {
+      paddingTopLeft: [padLeft, 16],
+      paddingBottomRight: [16, padBottom],
+      animate: false,
+    });
   }
 
   // ---------- Init ----------
@@ -1029,8 +1131,17 @@
       zoom: 11, minZoom: 9, maxZoom: 18,
       zoomControl: false,
       preferCanvas: true,
+      // Whole-number zoom snapping makes fitBounds round down, which leaves the
+      // city noticeably smaller than the space available in a narrow embed.
+      zoomSnap: 0.25,
     });
     L.control.zoom({ position: 'topright' }).addTo(STATE.map);
+
+    // Frame the five boroughs inside whatever container we're in, leaving room for
+    // the panel on the left so Manhattan isn't parked behind it. A fixed
+    // center/zoom breaks in an embed, where the container is much shorter and
+    // narrower than a full browser window.
+    frameCity();
 
     // CARTO Voyager (no labels) — neutral light editorial basemap
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
@@ -1212,7 +1323,7 @@
       const hourFmt = hour < 0 ? '' : (hour === 0 ? '12 a.m.' : hour < 12 ? `${hour} a.m.` : hour === 12 ? '12 p.m.' : `${hour - 12} p.m.`);
       m.bindPopup(`
         <div>
-          <div class="ncm-pop-kicker">${subName.replace(/^Noise[\\s\\-]*/, '') || 'Noise'} · ${hourFmt}</div>
+          <div class="ncm-pop-kicker">${shortType(subName)} · ${hourFmt}</div>
           <div class="ncm-pop-addr">${(addr || 'Unmarked location').replace(/  +/g,' ')}</div>
           ${desc ? `<div class="ncm-pop-meta">${desc}</div>` : ''}
         </div>
@@ -1237,6 +1348,15 @@
     // Legend swaps too
     const legend = document.querySelector('.ncm-legend');
     if (legend) legend.style.display = hideFullOnly ? 'none' : '';
+    // The Saturday window is 6 p.m. to 6 a.m., so the morning and afternoon
+    // filters have nothing to select. Hide them, and drop back to "All" if one
+    // of them was active when the mode changed.
+    if (hideFullOnly && (STATE.bucket === '0' || STATE.bucket === '1')) STATE.bucket = 'all';
+    document.querySelectorAll('#ncm-bucket-ctl button').forEach(b => {
+      const isDaytime = b.dataset.bucket === '0' || b.dataset.bucket === '1';
+      b.style.display = hideFullOnly && isDaytime ? 'none' : '';
+      b.classList.toggle('is-active', b.dataset.bucket === STATE.bucket);
+    });
     // Top list label changes
     const tlt = document.querySelector('.ncm-toplist-title');
     if (tlt) tlt.textContent = hideFullOnly ? 'Saturday-night legend' : 'Top chronic addresses';
