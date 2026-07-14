@@ -1,0 +1,185 @@
+{
+ "generated": "2026-07-14T21:35:52+00:00",
+ "window": {
+  "since": "2025-01-01",
+  "until": "2026-07-14",
+  "last_day": "2026-07-13",
+  "days": 559,
+  "months": 18,
+  "label_long": "January 1, 2025 through July 13, 2026",
+  "label_short": "Jan 2025 to Jul 2026",
+  "label_sentence": "January 2025 to July 2026"
+ },
+ "total": 1092512,
+ "per_day": 1954,
+ "subtypes": [
+  {
+   "type": "Noise - Residential",
+   "n": 535838,
+   "pct": 49.0,
+   "buckets": [
+    79824,
+    160820,
+    234619,
+    60575
+   ],
+   "bucket_pct": [
+    15,
+    30,
+    44,
+    11
+   ]
+  },
+  {
+   "type": "Noise - Street/Sidewalk",
+   "n": 258334,
+   "pct": 23.6,
+   "buckets": [
+    30377,
+    90257,
+    119402,
+    18298
+   ],
+   "bucket_pct": [
+    12,
+    35,
+    46,
+    7
+   ]
+  },
+  {
+   "type": "Noise - Commercial",
+   "n": 95535,
+   "pct": 8.7,
+   "buckets": [
+    7719,
+    25314,
+    56555,
+    5947
+   ],
+   "bucket_pct": [
+    8,
+    26,
+    59,
+    6
+   ]
+  },
+  {
+   "type": "Noise",
+   "n": 86999,
+   "pct": 8.0,
+   "buckets": [
+    23947,
+    21203,
+    20744,
+    21105
+   ],
+   "bucket_pct": [
+    28,
+    24,
+    24,
+    24
+   ]
+  },
+  {
+   "type": "Noise - Vehicle",
+   "n": 69961,
+   "pct": 6.4,
+   "buckets": [
+    12772,
+    24276,
+    23374,
+    9539
+   ],
+   "bucket_pct": [
+    18,
+    35,
+    33,
+    14
+   ]
+  },
+  {
+   "type": "Noise - Helicopter",
+   "n": 27136,
+   "pct": 2.5,
+   "buckets": [
+    10966,
+    11997,
+    1175,
+    2998
+   ],
+   "bucket_pct": [
+    40,
+    44,
+    4,
+    11
+   ]
+  },
+  {
+   "type": "Noise - Park",
+   "n": 13953,
+   "pct": 1.3,
+   "buckets": [
+    1559,
+    5532,
+    5671,
+    1191
+   ],
+   "bucket_pct": [
+    11,
+    40,
+    41,
+    9
+   ]
+  },
+  {
+   "type": "Noise - House of Worship",
+   "n": 4756,
+   "pct": 0.4,
+   "buckets": [
+    2103,
+    1186,
+    707,
+    760
+   ],
+   "bucket_pct": [
+    44,
+    25,
+    15,
+    16
+   ]
+  }
+ ],
+ "boroughs": [
+  {
+   "name": "Brooklyn",
+   "n": 307507
+  },
+  {
+   "name": "Manhattan",
+   "n": 276782
+  },
+  {
+   "name": "Bronx",
+   "n": 244549
+  },
+  {
+   "name": "Queens",
+   "n": 235907
+  },
+  {
+   "name": "Staten Island",
+   "n": 27738
+  },
+  {
+   "name": "Unspecified",
+   "n": 29
+  }
+ ],
+ "bucket_labels": [
+  "Morning",
+  "Afternoon",
+  "Evening",
+  "Late night"
+ ]
+}

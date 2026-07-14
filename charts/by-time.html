@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>When New York calls 311 about noise / by category and hour</title>
-<meta name="description" content="When New York City 311 noise complaints peak, broken down by complaint category and time of day, January 2025 through April 2026.">
+<meta name="description" content="When New York City 311 noise complaints peak, broken down by complaint category and time of day, from January 2025 to the present.">
 <link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
 <style>
 @font-face {
@@ -135,7 +135,7 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
     <h1 class="vc-title">Every kind of noise has its own rhythm</h1>
-    <p class="vc-dek">Each cell shows what share of that category's complaints arrive in that block of the day. <strong>Commercial</strong> noise peaks at night. <strong>Houses of worship</strong> peak in the morning. <strong>Helicopters</strong> are almost never reported after dark.</p>
+    <p class="vc-dek">Each cell shows what share of that category's complaints arrive in that block of the day. <strong>Commercial</strong> noise peaks in the evening, when 59 percent of its complaints come in. <strong>Houses of worship</strong> peak in the morning. <strong>Helicopter</strong> complaints all but stop in the evening: 4 percent, the lowest share on the chart.</p>
   </div>
 
   <div class="vc-heatmap" id="vc-heatmap"></div>
@@ -147,21 +147,35 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   </div>
 
   <div class="vc-footer">
-    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Time blocks use local time: morning 6 a.m. to noon, afternoon noon to 6 p.m., evening 6 p.m. to midnight, late night midnight to 6 a.m. Window: January 1, 2025 through May 1, 2026.
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise." Time blocks use local time: morning 6 a.m. to noon, afternoon noon to 6 p.m., evening 6 p.m. to midnight, late night midnight to 6 a.m. Rows are the time a complaint was filed, not the time the noise began. "Construction, equipment" is the bare "Noise" complaint type, routed to the Department of Environmental Protection. Window: <span class="js-window">—</span>.
     <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
   </div>
 </div>
 
 <script>
-const SUBS = [
-  { name: 'Residential',      total: 451990, buckets: [15, 30, 43, 11] },
-  { name: 'Street, sidewalk', total: 203522, buckets: [12, 35, 45,  8] },
-  { name: 'Commercial',       total:  81093, buckets: [ 8, 26, 60,  6] },
-  { name: 'Vehicle',          total:  56207, buckets: [18, 34, 34, 14] },
-  { name: 'Helicopter',       total:  25244, buckets: [41, 44,  4, 11] },
-  { name: 'House of worship', total:   4066, buckets: [49, 27, 10, 14] },
-];
-const BUCKET_LABELS = ['Morning', 'Afternoon', 'Evening', 'Late night'];
+// Counts and time-of-day splits come from data/charts.json, written by
+// scripts/build_data.py on every refresh.
+const LABELS = {
+  'Noise - Residential':     'Residential',
+  'Noise - Street/Sidewalk': 'Street, sidewalk',
+  'Noise - Commercial':      'Commercial',
+  'Noise':                   'Construction, equipment',
+  'Noise - Vehicle':         'Vehicle',
+  'Noise - Helicopter':      'Helicopter',
+  'Noise - Park':            'Park',
+  'Noise - House of Worship':'House of worship',
+};
+
+fetch('../data/charts.json').then(r => r.json()).then(render);
+
+function render(C) {
+const SUBS = C.subtypes.map(s => ({
+  name: LABELS[s.type] || s.type,
+  total: s.n,
+  buckets: s.bucket_pct,
+}));
+const BUCKET_LABELS = C.bucket_labels;
+document.querySelectorAll('.js-window').forEach(el => { el.textContent = C.window.label_long; });
 
 const maxPct = Math.max(...SUBS.flatMap(s => s.buckets));
 const minPct = Math.min(...SUBS.flatMap(s => s.buckets));
@@ -208,6 +222,7 @@ for (let i = 0; i < steps; i++) {
   scale.appendChild(sw);
 }
 document.getElementById('vc-legend-range').textContent = `${minPct}% to ${maxPct}%`;
+}
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # New York City noise complaints + DEP violations map
 
-Interactive map of every NYC 311 noise complaint filed in 2025 and year-to-date 2026 — about 1 million records — plus every DEP-issued noise-code violation in the same window, including noise-camera tickets for loud vehicles. Complaints show as a hex grid; chronic addresses and violations as overlay markers.
+Interactive map of every NYC 311 noise complaint filed in 2025 and year-to-date 2026 — about 1.1 million records — plus every DEP-issued noise-code violation in the same window, including noise-camera tickets for loud vehicles. Complaints show as a hex grid; chronic addresses and violations as overlay markers.
 
 **Live:** https://vitalcity-nyc.github.io/nyc-noise-complaints-map/
 
@@ -26,13 +26,16 @@ The script writes:
 
 - `data/hex_2025.json`, `data/hex_2026ytd.json`, `data/hex_combined.json`
 - `data/chronic_2025.json`, `data/chronic_2026ytd.json`, `data/chronic_combined.json`
+- `data/saturday_night.json` (every complaint from the most recent Sat 6 PM – Sun 6 AM window)
+- `data/violations.json` (geocoded DEP noise-code violations)
+- `data/charts.json` (aggregates behind the three standalone charts in `charts/`)
 - `data/meta.json` (generation timestamp + row counts + subtype list)
 
 Run `python3 scripts/build_data.py --dry-run` to see record counts by complaint type without writing any files.
 
 ## Refresh
 
-`.github/workflows/refresh.yml` runs the build nightly and commits any changes.
+`.github/workflows/refresh.yml` runs the build daily (09:40 UTC) and commits any changes. The window's end date is computed at run time — it is always the last complete day — so nothing needs editing to keep the site current.
 
 ## Embedding
 
@@ -47,7 +50,7 @@ See [methodology.md](methodology.md) for data sources, filters, aggregation rule
 - [Leaflet](https://leafletjs.com/) + [Leaflet.heat](https://github.com/Leaflet/Leaflet.heat) for the map and heatmap layer.
 - [H3](https://h3geo.org/) for hex aggregation.
 - CARTO Voyager basemap.
-- Static HTML, no build step. Data refreshed nightly via GitHub Actions.
+- Static HTML, no build step. Data refreshed daily via GitHub Actions.
 
 ## Data source
 

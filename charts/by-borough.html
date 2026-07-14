@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Where New York calls 311 about noise / by borough</title>
-<meta name="description" content="New York City 311 noise complaints by borough, per capita, January 2025 through April 2026.">
+<meta name="description" content="New York City 311 noise complaints by borough, total and per capita, from January 2025 to the present.">
 <link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
 <style>
 @font-face {
@@ -101,13 +101,13 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
     <h1 class="vc-title">The Bronx and Manhattan call 311 about noise the most, per person</h1>
-    <p class="vc-dek">Manhattan files the most noise complaints overall, but the Bronx is right behind it. Adjust for population and a different picture emerges: <strong>Manhattan and the Bronx are each more than five times as complaint-heavy as Staten Island, per resident.</strong></p>
+    <p class="vc-dek">Brooklyn files the most noise complaints of any borough, which is largely a function of its size. Adjust for population and the order flips: <strong>the Bronx and Manhattan each file about three times as many noise complaints per resident as Staten Island</strong>, and half again as many as Queens.</p>
   </div>
 
   <div class="vc-toggle" id="vc-toggle">
     <button data-view="total" class="is-active">
       <span class="lbl">Total complaints</span>
-      <span class="sub">January 2025 to April 2026</span>
+      <span class="sub js-window-short">—</span>
     </button>
     <button data-view="rate">
       <span class="lbl">Per 1,000 residents</span>
@@ -118,7 +118,7 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-chart" id="vc-chart"></div>
 
   <div class="vc-footer">
-    Sources: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise"; borough populations from the American Community Survey 2023 one-year estimates. Total counts include only complaints filed at addresses with 10 or more noise complaints in the period (82 percent of the citywide total); per-capita rates are calculated on that same set. Window: January 1, 2025 through May 1, 2026.
+    Sources: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise"; borough populations from the American Community Survey 2023 one-year estimates. Counts are every geocoded noise complaint in the window, minus one Bronx address that generates a physically impossible volume and is excluded as a reporting artifact; see the <a href="../methodology.md">methodology</a>. A small number of complaints with no borough recorded are not shown. Window: <span class="js-window">—</span>.
     <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
   </div>
 </div>
@@ -132,22 +132,19 @@ const POP = {
   Bronx:           1356476,
   'Staten Island':  490687,
 };
-const RAW = [
-  { name: 'Manhattan',     total: 211390 },
-  { name: 'Brooklyn',      total: 201386 },
-  { name: 'Bronx',         total: 175197 },
-  { name: 'Queens',        total: 149563 },
-  { name: 'Staten Island', total:  11890 },
-];
-// Per 1,000 residents over the 16-month window
-const ROWS = RAW.map(r => ({
-  name: r.name,
-  total: r.total,
-  rate: r.total / POP[r.name] * 1000,
-}));
-
+// Counts come from data/charts.json, written by scripts/build_data.py on every refresh.
+let ROWS = [];
 const $chart = document.getElementById('vc-chart');
 let view = 'total';
+
+fetch('../data/charts.json').then(r => r.json()).then(C => {
+  ROWS = C.boroughs
+    .filter(b => POP[b.name])   // drops the small "Unspecified" borough bucket
+    .map(b => ({ name: b.name, total: b.n, rate: b.n / POP[b.name] * 1000 }));
+  document.querySelectorAll('.js-window').forEach(el => { el.textContent = C.window.label_long; });
+  document.querySelectorAll('.js-window-short').forEach(el => { el.textContent = C.window.label_sentence; });
+  render();
+});
 
 function render() {
   const sorted = ROWS.slice().sort((a, b) => view === 'total' ? b.total - a.total : b.rate - a.rate);
@@ -169,7 +166,6 @@ function render() {
   }).join('');
   $chart.innerHTML = html;
 }
-render();
 
 document.querySelectorAll('#vc-toggle button').forEach(btn => {
   btn.addEventListener('click', () => {

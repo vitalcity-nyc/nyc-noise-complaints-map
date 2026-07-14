@@ -43,7 +43,10 @@ API_BASE = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
 OATH_API = "https://data.cityofnewyork.us/resource/jz4z-kudi.json"
 GEOSEARCH_API = "https://geosearch.planninglabs.nyc/v2/search"
 DEFAULT_SINCE = "2025-01-01T00:00:00"
-DEFAULT_UNTIL = "2026-05-01T00:00:00"  # exclusive
+# Exclusive end of the window: midnight local today, so the window always ends on
+# the last complete day. Computed at run time — never hardcode, or the build goes
+# stale the moment it stops being re-run.
+DEFAULT_UNTIL = (datetime.now(timezone.utc) - timedelta(hours=ET_OFFSET_HOURS)).strftime("%Y-%m-%dT00:00:00")
 PAGE_SIZE = 50000
 HEX_RES = 8
 MIN_CHRONIC = 10                        # write any location with >= 10; threshold slider in UI
@@ -234,6 +237,11 @@ def main() -> int:
     skipped_geo = 0
     skipped_artifact = 0
     skipped_no_bucket = 0
+    # Tallies over kept rows only (artifacts and bad geo excluded) — these feed the
+    # standalone charts, so they must match what the map shows.
+    kept_sub_counts: dict[str, int] = defaultdict(int)
+    kept_sub_buckets: dict[str, list[int]] = defaultdict(lambda: [0] * NUM_BUCKETS)
+    kept_boro_counts: dict[str, int] = defaultdict(int)
     for r in rows:
         try:
             lat = float(r["latitude"]); lng = float(r["longitude"])
@@ -254,6 +262,10 @@ def main() -> int:
         bi = bucket_for(r.get("created_date", ""))
         if bi is None:
             skipped_no_bucket += 1; continue
+
+        kept_sub_counts[sub] += 1
+        kept_sub_buckets[sub][bi] += 1
+        kept_boro_counts[title_case(r.get("borough") or "Unspecified")] += 1
 
         hex_id = h3.latlng_to_cell(lat, lng, HEX_RES)
         for p in (per, "combined"):
@@ -567,6 +579,49 @@ def main() -> int:
     }
     (out_dir / "violations.json").write_text(json.dumps(violations_payload, separators=(",", ":")))
     sys.stderr.write(f"Wrote {out_dir/'violations.json'} ({len(viol_points):,} points)\n")
+
+    # ---- Chart summary (feeds charts/by-type, by-time, by-borough) ----
+    # Everything the standalone charts render, computed from the same kept-row set
+    # as the map, so the charts can never drift from the data behind them.
+    since_d = datetime.strptime(since[:10], "%Y-%m-%d").date()
+    until_d = datetime.strptime(until[:10], "%Y-%m-%d").date()
+    span_days = (until_d - since_d).days
+    span_months = round(span_days / 30.44)
+    total_kept = sum(kept_sub_counts.values())
+
+    def month_label(d):
+        return d.strftime("%B %-d, %Y")
+
+    charts = {
+        "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "window": {
+            "since": since_d.isoformat(),
+            "until": until_d.isoformat(),  # exclusive
+            "last_day": (until_d - timedelta(days=1)).isoformat(),
+            "days": span_days,
+            "months": span_months,
+            "label_long": f"{month_label(since_d)} through {month_label(until_d - timedelta(days=1))}",
+            "label_short": f"{since_d.strftime('%b %Y')} to {(until_d - timedelta(days=1)).strftime('%b %Y')}",
+            "label_sentence": f"{since_d.strftime('%B %Y')} to {(until_d - timedelta(days=1)).strftime('%B %Y')}",
+        },
+        "total": total_kept,
+        "per_day": round(total_kept / span_days) if span_days else 0,
+        "subtypes": [
+            {"type": s, "n": kept_sub_counts[s],
+             "pct": round(kept_sub_counts[s] / total_kept * 100, 1) if total_kept else 0,
+             "buckets": kept_sub_buckets[s],
+             "bucket_pct": [round(c / kept_sub_counts[s] * 100) if kept_sub_counts[s] else 0
+                            for c in kept_sub_buckets[s]]}
+            for s in sorted(kept_sub_counts, key=lambda s: -kept_sub_counts[s])
+        ],
+        "boroughs": [
+            {"name": b, "n": n}
+            for b, n in sorted(kept_boro_counts.items(), key=lambda x: -x[1])
+        ],
+        "bucket_labels": ["Morning", "Afternoon", "Evening", "Late night"],
+    }
+    (out_dir / "charts.json").write_text(json.dumps(charts, indent=1))
+    sys.stderr.write(f"Wrote {out_dir/'charts.json'} (total kept: {total_kept:,})\n")
 
     meta = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),

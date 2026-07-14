@@ -88,7 +88,9 @@ NYC 311 helicopter-noise complaints are filed against an address — but the hel
 
 ## Known data anomaly: 655 East 230 Street
 
-The single highest-count chronic location in the current dataset is 655 East 230 Street in the Bronx, with about 128,000 noise complaints in the 2025 + 2026 YTD window. That is roughly 8,000 complaints per month, or 270 per day, at one address — physically impossible. This is a 311 system artifact rather than a real signal. Possible explanations include a single resident filing automated repeat complaints, or a geocoding fallback writing this address whenever the original location string fails to resolve. We do not silently filter this point out; it appears in the chronic data as-is, but readers should treat it as a reporting artifact. The same caveat applies to any other implausibly large single-address total.
+One address — 655 East 230 Street in the Bronx — carries about 128,000 noise complaints in the window. That is roughly 8,000 complaints per month, or 270 per day, at a single address: physically impossible. This is a 311 system artifact rather than a real signal. Possible explanations include a single resident filing automated repeat complaints, or a geocoding fallback writing this address whenever the original location string fails to resolve.
+
+**We exclude it.** The ~50m block containing that address is on an explicit blocklist (`ARTIFACT_BLOCKLIST` in `scripts/build_data.py`) and its complaints are dropped from the map, the charts and every count on this site. `data/meta.json` records how many rows were excluded on each build, so the exclusion is auditable rather than invisible. Nothing else is excluded on these grounds; if another address ever reaches a similar volume it would be evaluated the same way and named here.
 
 ## What this map is not
 
@@ -98,19 +100,20 @@ The single highest-count chronic location in the current dataset is 655 East 230
 
 ## Refresh
 
-The build script is run nightly by `.github/workflows/refresh.yml`. The workflow:
+The build script is run daily by `.github/workflows/refresh.yml`. The workflow:
 
 1. Calls `scripts/build_data.py` to pull the full window from Socrata.
 2. Writes new aggregated JSON files to `data/`.
 3. Commits the changes if anything actually changed.
 
-A `meta.json` file records the generation timestamp, the date range used, and the row count.
+The window's end date is computed at run time — it is always the last complete day before the build — so no date is hardcoded anywhere in the pipeline. A `meta.json` file records the generation timestamp, the date range used, and the row count. `data/charts.json` holds the aggregates behind the three standalone charts, which read it at load time rather than carrying their own copies of the numbers.
 
 ## Reproducing this analysis
 
 ```bash
 pip install h3
-python3 scripts/build_data.py --since 2025-01-01 --until 2026-05-01
+python3 scripts/build_data.py                 # window ends at the last complete day
+python3 scripts/build_data.py --until 2026-05-01T00:00:00   # or pin an end date
 ```
 
 The repository is designed to be self-contained — every input is documented, every output is regenerable from raw NYC Open Data, and no editorial transformations happen between fetch and render that are not described here.
