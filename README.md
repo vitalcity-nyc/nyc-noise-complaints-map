@@ -61,6 +61,25 @@ The map framing adapts to the container: the panel is a left overlay on wide scr
 
 Alternatively, the map UI sits inside `<div class="ncm-root">` with all CSS scoped under `.ncm-root`, so the block can be copied wholesale into another page with the data fetches pointed at this repo's Pages URL.
 
+### Charts
+
+Each chart under `charts/` (`by-type.html`, `by-time.html`, `by-borough.html`) embeds the same way with `?embed=1`, posting `vc-embed-height` with its own id (`noise-by-type`, `noise-by-time`, `noise-by-borough`).
+
+To avoid stacking three separate cards, `charts/all.html` wraps all three in one click-through card — a segmented tab control with prev/next arrows, showing one chart at a time and resizing to it. It reuses the three chart pages as inner frames, so they stay accurate as the data refreshes. It posts `vc-embed-height` with id `noise-charts`. Embed the consolidated card with:
+
+```html
+<iframe id="noise-charts-frame" src="https://vitalcity-nyc.github.io/nyc-noise-complaints-map/charts/all.html?embed=1"
+        title="New York's 311 noise complaints, three ways" loading="lazy"
+        style="width:100%;height:800px;border:0;display:block;"></iframe>
+<script>
+window.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'vc-embed-height' && e.data.id === 'noise-charts') {
+    document.getElementById('noise-charts-frame').style.height = e.data.height + 'px';
+  }
+});
+</script>
+```
+
 ## Methodology
 
 See [methodology.md](methodology.md) for data sources, filters, aggregation rules, the helicopter-complaint caveat, and the limits of what 311 data can tell you about how loud the city actually is.
