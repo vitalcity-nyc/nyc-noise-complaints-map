@@ -1109,19 +1109,43 @@
     if (!STATE.map) return;
     STATE.map.invalidateSize();
     const size = STATE.map.getSize();
+    const mapEl = document.getElementById('ncm-map');
     const panel = document.querySelector('.ncm-panel');
     let padLeft = 16, padBottom = 16;
-    if (panel) {
-      const r = panel.getBoundingClientRect();
-      const isBottomSheet = r.width > size.x * 0.8;
-      if (isBottomSheet) padBottom = Math.min(r.height + 16, size.y * 0.62);
-      else padLeft = Math.min(r.width + 24, size.x * 0.5);
+    // Only reserve room for the panel where it actually sits ON the map. Measure the
+    // overlap of the two rectangles rather than assuming a layout: the panel is a
+    // left overlay on wide screens, a bottom sheet on phones, and in some hosts it
+    // flows below the map entirely (no overlap → no padding, city fills the frame).
+    if (panel && mapEl) {
+      const m = mapEl.getBoundingClientRect();
+      const p = panel.getBoundingClientRect();
+      const ix = Math.max(0, Math.min(m.right, p.right) - Math.max(m.left, p.left));
+      const iy = Math.max(0, Math.min(m.bottom, p.bottom) - Math.max(m.top, p.top));
+      if (ix > 0 && iy > 0) {
+        const coversBottom = p.width > m.width * 0.8; // full-width bottom sheet
+        if (coversBottom) padBottom = Math.min(iy + 16, size.y * 0.62);
+        else padLeft = Math.min(ix + 24, size.x * 0.5); // left overlay
+      }
     }
-    STATE.map.fitBounds(CITY_BOUNDS, {
+    const opts = {
       paddingTopLeft: [padLeft, 16],
       paddingBottomRight: [16, padBottom],
       animate: false,
-    });
+    };
+    STATE.map.fitBounds(CITY_BOUNDS, opts);
+    // fitBounds guarantees the whole (roughly square) city box is visible, so on a
+    // wide-and-short embed it leaves the city small with big New Jersey / Long
+    // Island margins. Those margins are horizontal slack, so zoom in past the exact
+    // fit — more the wider the usable area is relative to its height. The dense five
+    // boroughs don't reach the corners of the box, so this crops water and suburbs,
+    // not the city.
+    const effW = Math.max(1, size.x - padLeft);
+    const effH = Math.max(1, size.y - padBottom);
+    const aspect = effW / effH;
+    const nudge = Math.max(0, Math.min(1, (aspect - 1) * 0.6));
+    if (nudge > 0.05) {
+      STATE.map.setView(STATE.map.getCenter(), STATE.map.getZoom() + nudge, { animate: false });
+    }
   }
 
   // ---------- Init ----------
