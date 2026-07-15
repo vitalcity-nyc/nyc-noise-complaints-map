@@ -118,7 +118,8 @@ body.embed .vc-card { border: 0; max-width: none; }
 if (new URLSearchParams(location.search).get('embed') === '1') {
   document.body.classList.add('embed');
   const post = () => {
-    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    const _c = document.querySelector('.vc-card');
+    const h = _c ? Math.ceil(_c.getBoundingClientRect().height) : document.body.scrollHeight;
     parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-type', height: h }, '*');
   };
   window.addEventListener('load', post);
@@ -131,7 +132,7 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
     <h1 class="vc-title">Half of all 311 noise calls are about your neighbors</h1>
-    <p class="vc-dek"><strong>Residential noise</strong> — music, parties, banging, a television through the wall — accounts for half of every 311 noise complaint in the city. Street and sidewalk noise is a distant second at 24 percent. <strong>Helicopters</strong> are under 3 percent.</p>
+    <p class="vc-dek"><strong>Residential noise</strong> — music, parties, banging, a television through the wall — accounts for half of every 311 noise complaint in the city. Street and sidewalk noise is a distant second at 24%. <strong>Helicopters</strong> are under 3%.</p>
   </div>
 
   <div class="vc-stats">

@@ -181,5 +181,49 @@
   "Afternoon",
   "Evening",
   "Late night"
+ ],
+ "yearly": [
+  {
+   "year": 2020,
+   "n": 760161,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2021,
+   "n": 759520,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2022,
+   "n": 718437,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2023,
+   "n": 679373,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2024,
+   "n": 687502,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2025,
+   "n": 706037,
+   "partial": false,
+   "through": null
+  },
+  {
+   "year": 2026,
+   "n": 388152,
+   "partial": true,
+   "through": "Jul 14"
+  }
  ]
 }

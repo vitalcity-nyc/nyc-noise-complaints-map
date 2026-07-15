@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New York's 311 noise complaints, by year</title>
+<meta name="description" content="New York City 311 noise complaints per year since 2020, from the pandemic peak through the decline and recent rebound.">
+<link rel="stylesheet" href="https://use.typekit.net/qqk2vto.css">
+<style>
+@font-face {
+  font-family: 'GascogneTS';
+  src: url('https://vital-city-nyc.github.io/vital-city-design-system/fonts/GascogneTS-Light.ttf') format('truetype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+:root {
+  --vc-black: #050507;
+  --vc-white: #ffffff;
+  --vc-cloud: #dddddd;
+  --vc-paper: #f7f7f4;
+  --vc-charcoal: #707175;
+  --vc-orange: #ff7c53;
+  --vc-magenta: #e7466d;
+  --vc-magenta-soft: #f2a9bd;
+  --vc-sans: "halyard-text", "Helvetica Neue", Arial, sans-serif;
+  --vc-serif: "GascogneTS", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--vc-paper); font-family: var(--vc-sans); color: var(--vc-black); -webkit-font-smoothing: antialiased; }
+body { padding: 28px 16px; }
+.vc-card { max-width: 760px; margin: 0 auto; background: var(--vc-white); border: 1px solid var(--vc-black); }
+.vc-header { padding: 22px 24px 18px; border-bottom: 1px solid var(--vc-black); }
+.vc-kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--vc-orange); margin-bottom: 10px; }
+.vc-title { font-family: var(--vc-sans); font-weight: 800; font-size: 22px; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 8px; }
+.vc-dek { font-size: 13px; font-weight: 300; line-height: 1.5; margin: 0; max-width: 64ch; }
+.vc-dek strong { font-weight: 700; }
+
+.vc-plot { display: flex; align-items: flex-end; gap: 10px; height: 260px; padding: 26px 24px 0; }
+.vc-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.vc-val { font-family: var(--vc-serif); font-weight: 300; font-size: 17px; line-height: 1; color: var(--vc-black); font-variant-numeric: tabular-nums; margin-bottom: 7px; }
+.vc-bar { width: 74%; background: var(--vc-magenta); transition: height 0.4s ease; }
+.vc-bar.is-partial { background: var(--vc-magenta-soft); }
+.vc-xaxis { display: flex; gap: 10px; padding: 8px 24px 4px; border-top: 1px solid var(--vc-cloud); }
+.vc-xcell { flex: 1; text-align: center; }
+.vc-yr { font-size: 12px; font-weight: 700; color: var(--vc-black); }
+.vc-yr-sub { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vc-charcoal); margin-top: 3px; }
+
+.vc-footer { padding: 14px 24px 18px; font-size: 11px; line-height: 1.55; color: var(--vc-charcoal); }
+.vc-footer a { color: var(--vc-black); text-decoration: underline; }
+
+body.embed { padding: 0; background: var(--vc-white); }
+body.embed .vc-card { border: 0; max-width: none; }
+
+@media (max-width: 560px) {
+  .vc-plot { gap: 5px; height: 220px; padding: 22px 14px 0; }
+  .vc-xaxis { gap: 5px; padding-left: 14px; padding-right: 14px; }
+  .vc-val { font-size: 13px; }
+  .vc-yr { font-size: 11px; }
+  .vc-title { font-size: 19px; }
+  .vc-header, .vc-footer { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+</head>
+<body>
+<script>
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  document.body.classList.add('embed');
+  const post = () => {
+    const _c = document.querySelector('.vc-card');
+    const h = _c ? Math.ceil(_c.getBoundingClientRect().height) : document.body.scrollHeight;
+    parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-year', height: h }, '*');
+  };
+  window.addEventListener('load', post);
+  window.addEventListener('resize', post);
+  let n = 0; const t = setInterval(() => { post(); if (++n > 12) clearInterval(t); }, 300);
+}
+</script>
+
+<div class="vc-card">
+  <div class="vc-header">
+    <div class="vc-kicker">Sound and the city</div>
+    <h1 class="vc-title">Noise complaints peaked in the pandemic, then eased</h1>
+    <p class="vc-dek">New York filed its most 311 noise complaints in <strong>2020 and 2021</strong> — about 760,000 a year — as the pandemic kept people home. The total then fell for two years to a low in 2023, before climbing back up in 2024 and 2025.</p>
+  </div>
+
+  <div class="vc-plot" id="vc-plot"></div>
+  <div class="vc-xaxis" id="vc-xaxis"></div>
+
+  <div class="vc-footer" id="vc-footer">
+    Source: New York City 311 Service Requests (dataset <code>erm2-nwe9</code>), filtered to complaint types beginning with "Noise" and to geocoded records. Counts are per calendar year; one Bronx address that generates a physically impossible volume is excluded as a reporting artifact. This dataset begins in 2020; earlier 311 records live in a separate archive and are left out so the definition stays consistent.
+    <div style="margin-top:8px;"><a href="../">Interactive noise map ↗</a></div>
+  </div>
+</div>
+
+<script>
+fetch('../data/charts.json').then(r => r.json()).then(render);
+
+function fmt(n) {
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
+  return n.toLocaleString();
+}
+
+function render(C) {
+  const years = (C.yearly || []).slice().sort((a, b) => a.year - b.year);
+  if (!years.length) return;
+  const max = Math.max(...years.map(y => y.n));
+  const MAX_BAR = 232; // px, leaves room for the value label above
+
+  document.getElementById('vc-plot').innerHTML = years.map(y => {
+    const h = Math.max(3, Math.round(MAX_BAR * y.n / max));
+    return `<div class="vc-col">
+      <div class="vc-val">${fmt(y.n)}</div>
+      <div class="vc-bar ${y.partial ? 'is-partial' : ''}" style="height:${h}px" title="${y.year}: ${y.n.toLocaleString()}"></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vc-xaxis').innerHTML = years.map(y =>
+    `<div class="vc-xcell"><span class="vc-yr">${y.year}</span>${y.partial ? `<span class="vc-yr-sub">through ${y.through}</span>` : ''}</div>`
+  ).join('');
+
+  // Footnote clarifying the partial current year, if present. Inserted just before
+  // the map link so it reads at the end of the source sentence, not mid-line.
+  const partial = years.find(y => y.partial);
+  if (partial) {
+    const footer = document.getElementById('vc-footer');
+    const linkDiv = footer.querySelector('div');
+    const note = document.createTextNode(` ${partial.year} is a partial year (through ${partial.through}) and is shown in a lighter bar.`);
+    footer.insertBefore(note, linkDiv);
+  }
+}
+</script>
+</body>
+</html>

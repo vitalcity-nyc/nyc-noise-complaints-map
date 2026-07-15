@@ -88,7 +88,8 @@ body.embed .vc-card { border: 0; max-width: none; }
 if (new URLSearchParams(location.search).get('embed') === '1') {
   document.body.classList.add('embed');
   const post = () => {
-    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    const _c = document.querySelector('.vc-card');
+    const h = _c ? Math.ceil(_c.getBoundingClientRect().height) : document.body.scrollHeight;
     parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-borough', height: h }, '*');
   };
   window.addEventListener('load', post);

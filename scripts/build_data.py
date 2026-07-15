@@ -124,6 +124,41 @@ def fetch_all(since: str, until: str, limit: int = PAGE_SIZE) -> list[dict]:
     return out
 
 
+# Bounding box of the 655 East 230 Street artifact block (~50m), matching
+# ARTIFACT_BLOCKLIST. Used to exclude it from server-side yearly counts so the
+# trend line is consistent with the rest of the site.
+ARTIFACT_BOX = "latitude between 40.8915 and 40.8925 AND longitude between -73.8605 and -73.8595"
+YEARLY_SINCE = "2020-01-01T00:00:00"  # erm2-nwe9 only holds 2020-present
+
+
+def fetch_yearly(until: str) -> list[dict]:
+    """Annual noise-complaint counts from 2020 to `until`, one cheap grouped query.
+
+    Uses erm2-nwe9 only (consistent complaint_type taxonomy and geocoding since
+    2020). Older 311 lives in a separate archive dataset with a possibly different
+    definition, so we deliberately do not splice it in.
+    """
+    where = (
+        f"complaint_type LIKE 'Noise%' "
+        f"AND created_date >= '{YEARLY_SINCE}' "
+        f"AND created_date < '{until}' "
+        f"AND latitude IS NOT NULL "
+        f"AND NOT ({ARTIFACT_BOX})"
+    )
+    qs = urllib.parse.urlencode({
+        "$select": "date_extract_y(created_date) AS yr, count(*) AS n",
+        "$where": where, "$group": "yr", "$order": "yr",
+    })
+    rows = http_get_json(f"{API_BASE}?{qs}")
+    out = []
+    for r in rows:
+        try:
+            out.append({"year": int(r["yr"]), "n": int(r["n"])})
+        except (KeyError, ValueError, TypeError):
+            continue
+    return out
+
+
 def period_for(created: str) -> str | None:
     # created looks like '2025-08-23T00:00:00.000'
     if not created or len(created) < 4:
@@ -592,6 +627,20 @@ def main() -> int:
     def month_label(d):
         return d.strftime("%B %-d, %Y")
 
+    last_day = until_d - timedelta(days=1)
+    sys.stderr.write("Fetching yearly trend (2020-present)...\n")
+    yearly_raw = fetch_yearly(until)
+    yearly = []
+    for row in yearly_raw:
+        partial = row["year"] == last_day.year
+        yearly.append({
+            "year": row["year"],
+            "n": row["n"],
+            "partial": partial,
+            "through": last_day.strftime("%b %-d") if partial else None,
+        })
+    sys.stderr.write(f"  yearly: {[(y['year'], y['n']) for y in yearly]}\n")
+
     charts = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "window": {
@@ -619,6 +668,7 @@ def main() -> int:
             for b, n in sorted(kept_boro_counts.items(), key=lambda x: -x[1])
         ],
         "bucket_labels": ["Morning", "Afternoon", "Evening", "Late night"],
+        "yearly": yearly,
     }
     (out_dir / "charts.json").write_text(json.dumps(charts, indent=1))
     sys.stderr.write(f"Wrote {out_dir/'charts.json'} (total kept: {total_kept:,})\n")

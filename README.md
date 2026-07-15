@@ -63,9 +63,14 @@ Alternatively, the map UI sits inside `<div class="ncm-root">` with all CSS scop
 
 ### Charts
 
-Each chart under `charts/` (`by-type.html`, `by-time.html`, `by-borough.html`) embeds the same way with `?embed=1`, posting `vc-embed-height` with its own id (`noise-by-type`, `noise-by-time`, `noise-by-borough`).
+Each chart under `charts/` embeds the same way with `?embed=1`, posting `vc-embed-height` with its own id:
 
-To avoid stacking three separate cards, `charts/all.html` wraps all three in one click-through card — a segmented tab control with prev/next arrows, showing one chart at a time and resizing to it. It reuses the three chart pages as inner frames, so they stay accurate as the data refreshes. It posts `vc-embed-height` with id `noise-charts`. Embed the consolidated card with:
+- `by-type.html` — share by complaint category (donut) — `noise-by-type`
+- `by-time.html` — time-of-day split by category (heatmap) — `noise-by-time`
+- `by-borough.html` — total and per-capita by borough (bars) — `noise-by-borough`
+- `by-year.html` — complaints per year since 2020 (bars) — `noise-by-year`
+
+To avoid stacking separate cards, `charts/all.html` wraps all four in one click-through card — a segmented tab control (By type · When it peaks · By borough · Over time) with prev/next arrows and arrow-key support, showing one chart at a time and resizing to it. It reuses the chart pages as inner frames, so they stay accurate as the data refreshes. It posts `vc-embed-height` with id `noise-charts`. Embed the consolidated card with:
 
 ```html
 <iframe id="noise-charts-frame" src="https://vitalcity-nyc.github.io/nyc-noise-complaints-map/charts/all.html?embed=1"

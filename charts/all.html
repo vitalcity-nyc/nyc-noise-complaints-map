@@ -24,7 +24,7 @@ body { padding: 28px 16px; }
 
 /* Tab bar: a label, three segments, and prev/next arrows for stepping through. */
 .vc-tabbar { display: flex; align-items: stretch; border-bottom: 1px solid var(--vc-black); }
-.vc-tabs { display: grid; grid-template-columns: repeat(3, 1fr); flex: 1; }
+.vc-tabs { display: grid; grid-template-columns: repeat(4, 1fr); flex: 1; }
 .vc-tabs button {
   background: var(--vc-white); border: 0; border-right: 1px solid var(--vc-cloud);
   padding: 12px 10px; cursor: pointer; font-family: var(--vc-sans); color: var(--vc-black);
@@ -63,6 +63,7 @@ body.embed .vc-card { border: 0; max-width: none; }
       <button data-i="0" class="is-active">By type</button>
       <button data-i="1">When it peaks</button>
       <button data-i="2">By borough</button>
+      <button data-i="3">Over time</button>
     </div>
     <button class="vc-step" id="vc-next" aria-label="Next chart">&#8250;</button>
   </div>
@@ -70,6 +71,7 @@ body.embed .vc-card { border: 0; max-width: none; }
     <iframe data-id="noise-by-type"    class="is-active" title="311 noise complaints by category"        src="by-type.html?embed=1"    loading="eager"></iframe>
     <iframe data-id="noise-by-time"                       title="When 311 noise complaints peak"          src="by-time.html?embed=1"    loading="eager"></iframe>
     <iframe data-id="noise-by-borough"                    title="311 noise complaints by borough"         src="by-borough.html?embed=1" loading="eager"></iframe>
+    <iframe data-id="noise-by-year"                       title="311 noise complaints by year"            src="by-year.html?embed=1"    loading="eager"></iframe>
   </div>
 </div>
 
@@ -127,7 +129,7 @@ body.embed .vc-card { border: 0; max-width: none; }
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || d.type !== 'vc-embed-height' || typeof d.height !== 'number') return;
-    if (d.id === 'noise-by-type' || d.id === 'noise-by-time' || d.id === 'noise-by-borough') {
+    if (d.id === 'noise-by-type' || d.id === 'noise-by-time' || d.id === 'noise-by-borough' || d.id === 'noise-by-year') {
       heights[d.id] = d.height;
       if (d.id === activeId()) applyHeight();
     }

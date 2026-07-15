@@ -122,7 +122,8 @@ body.embed .vc-card { border: 0; max-width: none; }
 if (new URLSearchParams(location.search).get('embed') === '1') {
   document.body.classList.add('embed');
   const post = () => {
-    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    const _c = document.querySelector('.vc-card');
+    const h = _c ? Math.ceil(_c.getBoundingClientRect().height) : document.body.scrollHeight;
     parent.postMessage({ type: 'vc-embed-height', id: 'noise-by-time', height: h }, '*');
   };
   window.addEventListener('load', post);
@@ -135,7 +136,7 @@ if (new URLSearchParams(location.search).get('embed') === '1') {
   <div class="vc-header">
     <div class="vc-kicker">Sound and the city</div>
     <h1 class="vc-title">Every kind of noise has its own rhythm</h1>
-    <p class="vc-dek">Each cell shows what share of that category's complaints arrive in that block of the day. <strong>Commercial</strong> noise peaks in the evening, when 59 percent of its complaints come in. <strong>Houses of worship</strong> peak in the morning. <strong>Helicopter</strong> complaints all but stop in the evening: 4 percent, the lowest share on the chart.</p>
+    <p class="vc-dek">Each cell shows what share of that category's complaints arrive in that block of the day. <strong>Commercial</strong> noise peaks in the evening, when 59% of its complaints come in. <strong>Houses of worship</strong> peak in the morning. <strong>Helicopter</strong> complaints all but stop in the evening: 4%, the lowest share on the chart.</p>
   </div>
 
   <div class="vc-heatmap" id="vc-heatmap"></div>
