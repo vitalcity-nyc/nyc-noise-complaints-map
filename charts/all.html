@@ -47,7 +47,9 @@ body { padding: 28px 16px; }
 .vc-stack iframe.is-active { opacity: 1; visibility: visible; }
 
 body.embed { padding: 0; background: var(--vc-white); }
-body.embed .vc-card { border: 0; max-width: none; }
+/* Keep the hairline box in embeds so the card reads as a distinct unit in a story.
+   The inner chart frames drop their own border (below) to avoid doubling up. */
+body.embed .vc-card { max-width: none; }
 
 @media (max-width: 560px) {
   .vc-tabs button { font-size: 11px; padding: 11px 6px; }
@@ -98,10 +100,14 @@ body.embed .vc-card { border: 0; max-width: none; }
     postUp(h);
   }
 
-  // Tell the host page (Ghost) how tall the whole card is: tab bar + active chart.
-  function postUp(chartH) {
+  // Tell the host page (Ghost) how tall the whole card is. Measure the card's own
+  // box so the 1px border is counted — summing tab bar + chart left the border out
+  // and the host iframe clipped the bottom edge by 2px.
+  var card = document.querySelector('.vc-card');
+  function postUp() {
     if (!IS_EMBED) return;
-    var total = tabbar.offsetHeight + (chartH || heights[activeId()] || DEFAULT_H);
+    var total = card ? card.getBoundingClientRect().height
+                     : tabbar.offsetHeight + (heights[activeId()] || DEFAULT_H);
     parent.postMessage({ type: 'vc-embed-height', id: 'noise-charts', height: Math.ceil(total) }, '*');
   }
 

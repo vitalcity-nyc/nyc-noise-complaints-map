@@ -359,8 +359,12 @@
   height: 600px;
   width: 100%;
   background: var(--ncm-paper);
-  border: 0;
+  /* Hairline box so the embed reads as a distinct card in a story rather than
+     bleeding into the surrounding text. Matches the standalone card border. */
+  border: 1px solid var(--ncm-black);
 }
+/* No border in true fullscreen — it fills the screen. */
+.ncm-root.is-embed.is-fs { border: 0; }
 .ncm-root.is-embed .ncm-panel {
   max-height: calc(100% - 36px);
 }
