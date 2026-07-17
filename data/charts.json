@@ -1,26 +1,26 @@
 {
- "generated": "2026-07-16T10:26:14+00:00",
+ "generated": "2026-07-17T10:22:07+00:00",
  "window": {
   "since": "2025-01-01",
-  "until": "2026-07-16",
-  "last_day": "2026-07-15",
-  "days": 561,
+  "until": "2026-07-17",
+  "last_day": "2026-07-16",
+  "days": 562,
   "months": 18,
-  "label_long": "January 1, 2025 through July 15, 2026",
+  "label_long": "January 1, 2025 through July 16, 2026",
   "label_short": "Jan 2025 to Jul 2026",
   "label_sentence": "January 2025 to July 2026"
  },
  "total": 1095771,
- "per_day": 1953,
+ "per_day": 1950,
  "subtypes": [
   {
    "type": "Noise - Residential",
-   "n": 537212,
+   "n": 537213,
    "pct": 49.0,
    "buckets": [
     80039,
     161273,
-    235137,
+    235138,
     60763
    ],
    "bucket_pct": [
@@ -32,12 +32,12 @@
   },
   {
    "type": "Noise - Street/Sidewalk",
-   "n": 259469,
+   "n": 259468,
    "pct": 23.7,
    "buckets": [
     30470,
     90657,
-    119981,
+    119980,
     18361
    ],
    "bucket_pct": [
@@ -153,7 +153,7 @@
  "boroughs": [
   {
    "name": "Brooklyn",
-   "n": 308435
+   "n": 308434
   },
   {
    "name": "Manhattan",
@@ -165,7 +165,7 @@
   },
   {
    "name": "Queens",
-   "n": 236594
+   "n": 236595
   },
   {
    "name": "Staten Island",
@@ -223,7 +223,7 @@
    "year": 2026,
    "n": 389721,
    "partial": true,
-   "through": "Jul 15"
+   "through": "Jul 16"
   }
  ]
 }
