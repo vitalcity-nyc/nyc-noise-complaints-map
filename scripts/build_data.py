@@ -28,9 +28,12 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Eastern time = UTC-5 standard, UTC-4 daylight. NYC observes DST. We pick a
-# fixed UTC offset for the Saturday-night window — close enough; the exact
-# DST boundary day will be off by an hour but the editorial point holds.
+# 311's created_date is recorded in LOCAL Eastern time, not UTC. Verified against
+# the hourly distribution: noise complaints peak at hours 22-23 in the raw field,
+# which is 11 p.m. local, not 11 p.m. UTC (that would be 7 p.m. here). So hours
+# read off created_date are already the local hours we want — no shift.
+# ET_OFFSET_HOURS remains only for converting a UTC "now" into a local calendar
+# date when picking window boundaries.
 ET_OFFSET_HOURS = 4  # treat ET ~ UTC-4 (EDT)
 
 try:
@@ -179,14 +182,15 @@ def loc_key(lat: float, lng: float) -> tuple[float, float]:
 # 0 = Morning (6–12), 1 = Afternoon (12–18), 2 = Evening (18–24), 3 = Late night (0–6)
 NUM_BUCKETS = 4
 
-def bucket_for(created_utc: str) -> int | None:
-    if not created_utc or len(created_utc) < 16:
+def bucket_for(created_local: str) -> int | None:
+    if not created_local or len(created_local) < 16:
         return None
     try:
-        t = datetime.strptime(created_utc[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        t = datetime.strptime(created_local[:19], "%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return None
-    hour = (t - timedelta(hours=ET_OFFSET_HOURS)).hour
+    # created_date is already local ET — read the hour straight off it.
+    hour = t.hour
     if 6 <= hour < 12:
         return 0
     if 12 <= hour < 18:
@@ -400,20 +404,44 @@ def main() -> int:
         sys.stderr.write(f"Wrote {path} ({len(locs):,} chronic locations, {path.stat().st_size/1024:.0f}KB)\n")
 
     # ---- Last Saturday night ----
-    # Window: Saturday 6:00 PM ET through Sunday 6:00 AM ET (12-hour window).
-    # We anchor on UTC-now and walk back to the most recent past Saturday.
-    now_utc = datetime.now(timezone.utc)
-    days_back = (now_utc.weekday() - 5) % 7  # weekday(): Mon=0 .. Sat=5
-    if days_back == 0 and now_utc.hour < (18 + ET_OFFSET_HOURS) % 24:
-        # If it's Saturday before the window starts, use the prior Saturday
-        days_back = 7
-    last_sat_date = (now_utc - timedelta(days=days_back)).date()
-    sat_start_utc = datetime(last_sat_date.year, last_sat_date.month, last_sat_date.day,
-                             18 + ET_OFFSET_HOURS, 0, 0, tzinfo=timezone.utc)
-    sat_end_utc = sat_start_utc + timedelta(hours=12)
-    sat_start_str = sat_start_utc.strftime("%Y-%m-%dT%H:%M:%S")
-    sat_end_str = sat_end_utc.strftime("%Y-%m-%dT%H:%M:%S")
-    sys.stderr.write(f"\nFetching last Saturday-night window: {sat_start_str} → {sat_end_str} UTC\n")
+    # Window: Saturday 6:00 PM ET through Sunday 6:00 AM ET (12-hour window), in
+    # local time (created_date is already local — see ET_OFFSET_HOURS note).
+    #
+    # 311 publishes on a lag of roughly a day and a half, so the calendar's most
+    # recent Saturday is usually NOT yet in the dataset. Asking for it anyway
+    # returned an empty window and the map's "Last Saturday night" view rendered
+    # with zero dots. So we ask the dataset how far it actually goes and walk
+    # back Saturday by Saturday until we find one whose window has fully landed.
+    latest_row = http_get_json(
+        f"{API_BASE}?" + urllib.parse.urlencode({
+            "$select": "max(created_date) as latest",
+            "$where": "complaint_type LIKE 'Noise%'",
+        })
+    )
+    latest_str = (latest_row[0] or {}).get("latest") if latest_row else None
+    if not latest_str:
+        raise RuntimeError("Could not determine latest created_date for the Saturday window")
+    data_through = datetime.strptime(latest_str[:19], "%Y-%m-%dT%H:%M:%S")
+    sys.stderr.write(f"\n311 noise data runs through {data_through.isoformat()} (local ET)\n")
+
+    # Start from the Saturday on or before the last day of available data, then
+    # step back until the whole Sat 6 p.m. -> Sun 6 a.m. window is covered.
+    probe = data_through.date()
+    probe -= timedelta(days=(probe.weekday() - 5) % 7)  # weekday(): Mon=0 .. Sat=5
+    for _ in range(8):
+        start = datetime(probe.year, probe.month, probe.day, 18, 0, 0)
+        if start + timedelta(hours=12) <= data_through:
+            break
+        probe -= timedelta(days=7)
+    else:
+        raise RuntimeError("No complete Saturday-night window in the last 8 weeks of data")
+
+    last_sat_date = probe
+    sat_start = datetime(last_sat_date.year, last_sat_date.month, last_sat_date.day, 18, 0, 0)
+    sat_end = sat_start + timedelta(hours=12)
+    sat_start_str = sat_start.strftime("%Y-%m-%dT%H:%M:%S")
+    sat_end_str = sat_end.strftime("%Y-%m-%dT%H:%M:%S")
+    sys.stderr.write(f"Fetching last complete Saturday-night window: {sat_start_str} → {sat_end_str} ET\n")
 
     sat_rows: list[dict] = []
     sat_offset = 0
@@ -454,8 +482,8 @@ def main() -> int:
         # Compact format: [lat, lng, subtype_index, hour_local, address, descriptor]
         created = r.get("created_date", "")
         try:
-            t = datetime.strptime(created[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
-            hour_local = (t - timedelta(hours=ET_OFFSET_HOURS)).hour
+            # created_date is already local ET — no shift.
+            hour_local = datetime.strptime(created[:19], "%Y-%m-%dT%H:%M:%S").hour
         except ValueError:
             hour_local = -1
         sat_points.append([

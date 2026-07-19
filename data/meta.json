@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-19T10:15:53+00:00",
+  "generated": "2026-07-19T13:28:37+00:00",
   "since": "2025-01-01T00:00:00",
   "until": "2026-07-19T00:00:00",
   "total_rows": 1229684,
@@ -27,8 +27,8 @@
   },
   "min_chronic": 10,
   "hex_resolution": 8,
-  "saturday_date": "2026-07-18",
-  "saturday_count": 0,
+  "saturday_date": "2026-07-11",
+  "saturday_count": 2966,
   "violations_fetched": 4603,
   "violations_plotted": 4509
 }

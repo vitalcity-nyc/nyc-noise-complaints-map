@@ -92,6 +92,18 @@ One address — 655 East 230 Street in the Bronx — carries about 128,000 noise
 
 **We exclude it.** The ~50m block containing that address is on an explicit blocklist (`ARTIFACT_BLOCKLIST` in `scripts/build_data.py`) and its complaints are dropped from the map, the charts and every count on this site. `data/meta.json` records how many rows were excluded on each build, so the exclusion is auditable rather than invisible. Nothing else is excluded on these grounds; if another address ever reaches a similar volume it would be evaluated the same way and named here.
 
+## Time of day
+
+311's `created_date` field is recorded in local Eastern time, not UTC. We verified this against the hourly distribution of the raw field: noise complaints peak at hours 22 and 23, which is 11 p.m. local. Had the field been UTC, that peak would sit at hours 02-03. Hours are therefore read straight off `created_date` with no timezone conversion.
+
+The four time-of-day buckets are morning (6 a.m. to noon), afternoon (noon to 6 p.m.), evening (6 p.m. to midnight) and late night (midnight to 6 a.m.), all local.
+
+## Last Saturday night
+
+The Saturday-night view covers a single 12-hour window, Saturday 6 p.m. through Sunday 6 a.m. local.
+
+It is not necessarily the Saturday just past. 311 publishes on a lag of roughly a day and a half, so the most recent calendar Saturday is usually not yet in the dataset. The build script queries the dataset's own `max(created_date)` and then steps back Saturday by Saturday until it finds one whose full window has landed. The window it settled on is labeled on the button, so the date shown is always the date actually plotted. If no complete window is found in the preceding eight weeks, the build fails rather than publishing a partial night.
+
 ## What this map is not
 
 - **It is not a measurement of how loud New York is.** It measures who calls 311. Reporting rates vary substantially by neighborhood — by language, age, housing tenure, trust in government, and many other factors. A neighborhood that calls 311 less may not be quieter; it may simply complain less.

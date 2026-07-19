@@ -1277,8 +1277,11 @@
       });
     });
 
-    // Populate Saturday-night label
-    if (STATE.saturdayData && STATE.saturdayData.window_label) {
+    // Populate Saturday-night label. An empty points array counts as unavailable:
+    // 311 publishes on a lag, and a window that hasn't landed yet would otherwise
+    // give a live-looking button that switches to a blank map.
+    if (STATE.saturdayData && STATE.saturdayData.window_label
+        && STATE.saturdayData.points && STATE.saturdayData.points.length) {
       $('ncm-saturday-label').textContent = STATE.saturdayData.window_label;
     } else {
       const btn = document.querySelector('.ncm-mode-btn[data-mode="saturday"]');
