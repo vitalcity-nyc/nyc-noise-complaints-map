@@ -1,25 +1,25 @@
 {
- "generated": "2026-08-13T10:20:10+00:00",
+ "generated": "2026-08-14T10:05:21+00:00",
  "window": {
   "since": "2025-01-01",
-  "until": "2026-08-13",
-  "last_day": "2026-08-12",
-  "days": 589,
+  "until": "2026-08-14",
+  "last_day": "2026-08-13",
+  "days": 590,
   "months": 19,
-  "label_long": "January 1, 2025 through August 12, 2026",
+  "label_long": "January 1, 2025 through August 13, 2026",
   "label_short": "Jan 2025 to Aug 2026",
   "label_sentence": "January 2025 to August 2026"
  },
  "total": 1158008,
- "per_day": 1966,
+ "per_day": 1963,
  "subtypes": [
   {
    "type": "Noise - Residential",
-   "n": 563850,
+   "n": 563851,
    "pct": 48.7,
    "buckets": [
     67627,
-    96586,
+    96587,
     252035,
     147602
    ],
@@ -32,13 +32,13 @@
   },
   {
    "type": "Noise - Street/Sidewalk",
-   "n": 281050,
+   "n": 281048,
    "pct": 24.3,
    "buckets": [
     18905,
     44028,
-    146987,
-    71130
+    146986,
+    71129
    ],
    "bucket_pct": [
     7,
@@ -66,10 +66,10 @@
   },
   {
    "type": "Noise",
-   "n": 91103,
+   "n": 91104,
    "pct": 7.9,
    "buckets": [
-    29825,
+    29826,
     20575,
     27740,
     12963
@@ -153,15 +153,15 @@
  "boroughs": [
   {
    "name": "Brooklyn",
-   "n": 325700
+   "n": 325699
   },
   {
    "name": "Manhattan",
-   "n": 289828
+   "n": 289829
   },
   {
    "name": "Bronx",
-   "n": 263523
+   "n": 263522
   },
   {
    "name": "Queens",
@@ -169,7 +169,7 @@
   },
   {
    "name": "Staten Island",
-   "n": 29504
+   "n": 29505
   },
   {
    "name": "Unspecified",
@@ -223,7 +223,7 @@
    "year": 2026,
    "n": 451957,
    "partial": true,
-   "through": "Aug 12"
+   "through": "Aug 13"
   }
  ]
 }
