@@ -1,27 +1,27 @@
 {
- "generated": "2026-08-25T09:57:40+00:00",
+ "generated": "2026-08-26T09:59:17+00:00",
  "window": {
   "since": "2025-01-01",
-  "until": "2026-08-25",
-  "last_day": "2026-08-24",
-  "days": 601,
+  "until": "2026-08-26",
+  "last_day": "2026-08-25",
+  "days": 602,
   "months": 20,
-  "label_long": "January 1, 2025 through August 24, 2026",
+  "label_long": "January 1, 2025 through August 25, 2026",
   "label_short": "Jan 2025 to Aug 2026",
   "label_sentence": "January 2025 to August 2026"
  },
- "total": 1182605,
- "per_day": 1968,
+ "total": 1187560,
+ "per_day": 1973,
  "subtypes": [
   {
    "type": "Noise - Residential",
-   "n": 575024,
+   "n": 577028,
    "pct": 48.6,
    "buckets": [
-    68843,
-    98382,
-    257182,
-    150617
+    69097,
+    98761,
+    257999,
+    151171
    ],
    "bucket_pct": [
     12,
@@ -32,13 +32,13 @@
   },
   {
    "type": "Noise - Street/Sidewalk",
-   "n": 288898,
-   "pct": 24.4,
+   "n": 290667,
+   "pct": 24.5,
    "buckets": [
-    19340,
-    45060,
-    151215,
-    73283
+    19437,
+    45351,
+    152173,
+    73706
    ],
    "bucket_pct": [
     7,
@@ -49,13 +49,13 @@
   },
   {
    "type": "Noise - Commercial",
-   "n": 101564,
+   "n": 101914,
    "pct": 8.6,
    "buckets": [
-    6122,
-    10733,
-    53352,
-    31357
+    6149,
+    10768,
+    53555,
+    31442
    ],
    "bucket_pct": [
     6,
@@ -66,13 +66,13 @@
   },
   {
    "type": "Noise",
-   "n": 92689,
+   "n": 93050,
    "pct": 7.8,
    "buckets": [
-    30395,
-    20910,
-    28209,
-    13175
+    30497,
+    20994,
+    28352,
+    13207
    ],
    "bucket_pct": [
     33,
@@ -83,13 +83,13 @@
   },
   {
    "type": "Noise - Vehicle",
-   "n": 76671,
+   "n": 76974,
    "pct": 6.5,
    "buckets": [
-    11424,
-    16906,
-    32743,
-    15598
+    11464,
+    16991,
+    32864,
+    15655
    ],
    "bucket_pct": [
     15,
@@ -100,13 +100,13 @@
   },
   {
    "type": "Noise - Helicopter",
-   "n": 27488,
+   "n": 27500,
    "pct": 2.3,
    "buckets": [
-    6190,
-    12868,
-    8104,
-    326
+    6191,
+    12877,
+    8105,
+    327
    ],
    "bucket_pct": [
     23,
@@ -117,13 +117,13 @@
   },
   {
    "type": "Noise - Park",
-   "n": 15340,
+   "n": 15488,
    "pct": 1.3,
    "buckets": [
-    1019,
-    2492,
-    8543,
-    3286
+    1021,
+    2519,
+    8623,
+    3325
    ],
    "bucket_pct": [
     7,
@@ -134,13 +134,13 @@
   },
   {
    "type": "Noise - House of Worship",
-   "n": 4931,
+   "n": 4939,
    "pct": 0.4,
    "buckets": [
     1211,
-    2059,
-    957,
-    704
+    2064,
+    959,
+    705
    ],
    "bucket_pct": [
     25,
@@ -153,23 +153,23 @@
  "boroughs": [
   {
    "name": "Brooklyn",
-   "n": 333080
+   "n": 334496
   },
   {
    "name": "Manhattan",
-   "n": 294922
+   "n": 295983
   },
   {
    "name": "Bronx",
-   "n": 269600
+   "n": 271012
   },
   {
    "name": "Queens",
-   "n": 254696
+   "n": 255635
   },
   {
    "name": "Staten Island",
-   "n": 30275
+   "n": 30402
   },
   {
    "name": "Unspecified",
@@ -223,7 +223,7 @@
    "year": 2026,
    "n": 479783,
    "partial": true,
-   "through": "Aug 24"
+   "through": "Aug 25"
   }
  ]
 }
