@@ -71,7 +71,9 @@ def http_get_json(url: str, retries: int = 4) -> list:
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "nyc-noise-map/1.0"})
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            # 300s: on slow Socrata days a 50k-row page of erm2-nwe9 takes
+            # 90-180s, and 120s failed every retry at deep offsets.
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 return json.loads(resp.read())
         except Exception as exc:
             last_err = exc
